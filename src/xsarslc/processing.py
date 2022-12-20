@@ -144,7 +144,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
         landmask (optional) : If provided, land mask passed to is_ocean(). Otherwise xspectra are calculated by default
         kwargs: keyword arguments passed to compute_intraburst_xspectrum()
     """
-    from tools import get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
+    from src.xsarslc.tools import get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
 
     burst.load()
     mean_ground_spacing = float(burst['sampleSpacing']/np.sin(np.radians(burst.attrs['mean_incidence'])))
@@ -383,7 +383,7 @@ def compute_modulation(ds, lowpass_width, spacing):
 
     """
     from scipy.signal import fftconvolve
-    from tools import gaussian_kernel
+    from src.xsarslc.tools import gaussian_kernel
 
     # ground_spacing = float(ds['sampleSpacing'])/np.sin(np.radians(ds['incidence'].mean()))
     
@@ -597,7 +597,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
     Keyword Args:
         kwargs: keyword arguments passed to compute_interburst_xspectrum()
     """
-    from tools import get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
+    from src.xsarslc.tools import get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
 
     # find overlapping burst portion
 
