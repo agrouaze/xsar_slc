@@ -4,7 +4,7 @@
 """
 import numpy as np
 import xarray as xr
-
+import logging
 from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 
@@ -77,7 +77,7 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         burst.attrs.update(commons)
         burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], tile_width,
                                                 tile_overlap, **kwargs)
-        xspectra.append(burst_xspectra.drop(['tile_line', 'tile_sample']))
+        xspectra.append(burst_xspectra)#.drop(['tile_line', 'tile_sample']))
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
@@ -124,7 +124,7 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         burst1.attrs.update(commons)
         interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], tile_width,
                                                               tile_overlap, **kwargs)
-        xspectra.append(interburst_xspectra.drop(['tile_line', 'tile_sample']))
+        xspectra.append(interburst_xspectra)#.drop(['tile_line', 'tile_sample']))
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
@@ -384,7 +384,7 @@ def deramp_burst(burst, dt):
         (xarray.DataArray): deramped digital numbers
     """
 
-    from deramping import compute_midburst_azimuthtime, compute_slant_range_time, compute_Doppler_centroid_rate, \
+    from xsarslc.deramping import compute_midburst_azimuthtime, compute_slant_range_time, compute_Doppler_centroid_rate, \
         compute_reference_time, compute_deramping_phase, compute_DopplerCentroid_frequency
 
     FMrate = dt['FMrate'].ds
@@ -762,7 +762,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
             water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
         else:
             water_only = True
-        print('water_only : ', water_only)
+        logging.debug('water_only :  %s', water_only)
         # ------------------------------------------------
         if water_only:
             sub0 = tiled_burst0[i].swap_dims({'__' + d: d for d in tile_width.keys()})
@@ -781,9 +781,9 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
             nperseg_periodo = {d: int(np.rint(periodo_width[d] / periodo_spacing[d])) for d in tile_width.keys()}
             noverlap_periodo = {d: int(np.rint(periodo_overlap[d] / periodo_spacing[d])) for d in tile_width.keys()}
 
-            print(periodo_spacing)
-            print(nperseg_periodo)
-            print(noverlap_periodo)
+            logging.debug("periodo_spacing %s",periodo_spacing)
+            logging.debug("nperseg_periodo %s",nperseg_periodo)
+            logging.debug("noverlap_periodo %s",noverlap_periodo)
 
             if np.any([sub0.sizes[d] < nperseg_periodo[d] for d in ['line', 'sample']]):
                 raise ValueError(

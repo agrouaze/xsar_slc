@@ -1,7 +1,10 @@
 [project]
-name = "xsar_slc"
+name = "xsarslc"
 requires-python = ">= 3.9"
 license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
 dependencies = [
     "xarray",
     "numpy",
@@ -12,7 +15,8 @@ dependencies = [
     "xsar"
 ]
 dynamic = ["version"]
-
+[project.optional-dependencies]
+l1b = ['xsar']
 [build-system]
 requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
