@@ -7,8 +7,6 @@ import xarray as xr
 from shapely.geometry import Polygon, GeometryCollection
 
 
-
-
 def FullResolutionInterpolation(lines, samples, field, geolocation_annotation, azimuthTimeInterval):
     """
     Interpolate a field of geolocation annotation at given (line, sample) locations. Azimuth time non-monotonous variations have to be carrefully taken into account.
@@ -22,12 +20,15 @@ def FullResolutionInterpolation(lines, samples, field, geolocation_annotation, a
         (xarray.DataArray): interpolated values of field at provided (lines, samples) coordinates
     """
     from scipy.interpolate import RectBivariateSpline
-    geolocated_lines = line2geolocline(lines, geolocation_annotation, azimuthTimeInterval) # Find geolocated lines
-    LR_field = geolocation_annotation[field] # Low resolution field
-    field_interpolator = RectBivariateSpline(LR_field['line'].data, LR_field['sample'].data,LR_field.transpose('line', 'sample').data, kx=1, ky=1) # interpolator of low resolution field
+    geolocated_lines = line2geolocline(lines, geolocation_annotation, azimuthTimeInterval)  # Find geolocated lines
+    LR_field = geolocation_annotation[field]  # Low resolution field
+    field_interpolator = RectBivariateSpline(LR_field['line'].data, LR_field['sample'].data,
+                                             LR_field.transpose('line', 'sample').data, kx=1,
+                                             ky=1)  # interpolator of low resolution field
     out = from_HDresampler(geolocated_lines, samples, field_interpolator).rename(field)
     out.attrs.update(LR_field.attrs)
     return out
+
 
 def line2geolocline(lines, geolocation_annotation, azimuth_time_interval):
     """
@@ -41,41 +42,46 @@ def line2geolocline(lines, geolocation_annotation, azimuth_time_interval):
     Returns:
         geoloc_lines (np.1darray) : Equivalent geolocated line number to interpolate over low resolution geolocation quantities
     """
-    aziTime = geolocation_annotation['azimuthTime']    
+    aziTime = geolocation_annotation['azimuthTime']
     geolines = geolocation_annotation['line']
-    
 
-    i_ref = np.clip(np.searchsorted(geolines, lines.data, side='left')-1,0,geolines.sizes['line']-2) # indice of burst containing lines (reference burst number)
-    l_ref = geolines.isel(line=i_ref).data # line number of the first line of reference burst
-    az_ref = aziTime.isel(line=i_ref, sample=0).data # azimuth time of the first line of reference burst
-    az = az_ref+((lines.data-l_ref)*azimuth_time_interval*1e9).astype('<m8[ns]') # azimuth time of the lines
-    
-    i_ref = np.clip(np.searchsorted(aziTime.isel(sample=0), az, side='left')-1,0,geolines.sizes['line']-2) # indice of reference burst is updated for the overlapping parts only
-    az_ref = aziTime.isel(line=i_ref, sample=0).data # azimuth time of the first line of reference burst is updated for the overlapping parts
-    l_ref = geolines.isel(line=i_ref).data # line number of the first line of reference burst is updated for the overlapping parts
+    i_ref = np.clip(np.searchsorted(geolines, lines.data, side='left') - 1, 0,
+                    geolines.sizes['line'] - 2)  # indice of burst containing lines (reference burst number)
+    l_ref = geolines.isel(line=i_ref).data  # line number of the first line of reference burst
+    az_ref = aziTime.isel(line=i_ref, sample=0).data  # azimuth time of the first line of reference burst
+    az = az_ref + ((lines.data - l_ref) * azimuth_time_interval * 1e9).astype('<m8[ns]')  # azimuth time of the lines
 
-    az_ref2 = aziTime.isel(line=i_ref+1, sample=0).data
-    l_ref2 = geolines.isel(line=i_ref+1).data
-    delta = (az_ref2-az_ref)/(l_ref2-l_ref) # rate of azimuth time variation VS line number in the low resolution geolocation annotation
-    geoloc_lines = l_ref+(az-az_ref)/delta
+    i_ref = np.clip(np.searchsorted(aziTime.isel(sample=0), az, side='left') - 1, 0,
+                    geolines.sizes['line'] - 2)  # indice of reference burst is updated for the overlapping parts only
+    az_ref = aziTime.isel(line=i_ref,
+                          sample=0).data  # azimuth time of the first line of reference burst is updated for the overlapping parts
+    l_ref = geolines.isel(
+        line=i_ref).data  # line number of the first line of reference burst is updated for the overlapping parts
+
+    az_ref2 = aziTime.isel(line=i_ref + 1, sample=0).data
+    l_ref2 = geolines.isel(line=i_ref + 1).data
+    delta = (az_ref2 - az_ref) / (
+                l_ref2 - l_ref)  # rate of azimuth time variation VS line number in the low resolution geolocation annotation
+    geoloc_lines = l_ref + (az - az_ref) / delta
     if isinstance(lines, xr.DataArray):
         geoloc_lines = xr.DataArray(geoloc_lines, dims=lines.dims, coords=lines.coords).rename('geolocated_line')
-    
+
     return geoloc_lines
+
 
 def from_HDresampler(geoloc_lines, samples, HD_resampler):
     """
     Call the interplator taking care of the strucutre of geoloc_lines and sample
     """
-    if geoloc_lines.sizes==samples.sizes:
+    if geoloc_lines.sizes == samples.sizes:
         res = HD_resampler(geoloc_lines.values, samples.values, grid=False)
         res = xr.DataArray(res, dims=geoloc_lines.dims).assign_coords(geoloc_lines.coords)
     else:
-        l,s = np.meshgrid(geoloc_lines, samples,indexing='ij')
-        l,s = l.reshape((1, np.prod(l.shape))), s.reshape((1, np.prod(s.shape)))
+        l, s = np.meshgrid(geoloc_lines, samples, indexing='ij')
+        l, s = l.reshape((1, np.prod(l.shape))), s.reshape((1, np.prod(s.shape)))
         res = HD_resampler(l, s, grid=False)
         res = res.reshape((len(geoloc_lines), len(samples)))
-        res = xr.DataArray(res, dims = geoloc_lines.dims+samples.dims)
+        res = xr.DataArray(res, dims=geoloc_lines.dims + samples.dims)
         res = res.assign_coords(geoloc_lines.coords)
         res = res.assign_coords(samples.coords)
     return res
@@ -96,8 +102,7 @@ def is_ocean(polygon, landmask):
     land_geom = list(landmask.geometries())
     gseries = GeometryCollection(land_geom)
     land_intersection = gseries.intersection(polygon)
-    return land_intersection.area==0.0
-
+    return land_intersection.area == 0.0
 
 
 def netcdf_compliant(dataset):
@@ -110,15 +115,15 @@ def netcdf_compliant(dataset):
     var_to_rm = list()
     var_to_add = list()
     for i in dataset.variables.keys():
-        if dataset[i].dtype==complex:
+        if dataset[i].dtype == complex:
             re = dataset[i].real
             im = dataset[i].imag
-            var_to_add.append({str(i)+'_Re':re, str(i)+'_Im':im})
+            var_to_add.append({str(i) + '_Re': re, str(i) + '_Im': im})
             var_to_rm.append(str(i))
     return xr.merge([dataset.drop_vars(var_to_rm), *var_to_add])
 
 
-def gaussian_kernel(width, spacing, truncate = 3.):
+def gaussian_kernel(width, spacing, truncate=3.):
     """
     Compute a Gaussian kernel for filtering
     
@@ -129,11 +134,12 @@ def gaussian_kernel(width, spacing, truncate = 3.):
     """
     gk = 1.
     for d in width.keys():
-        coord = np.arange(-truncate * width[d], truncate*width[d], spacing[d])
-        coord = xr.DataArray(coord, dims=d, coords={d:coord})
-        gk = gk*np.exp(-coord**2/(2 * width[d]**2))
-    gk/=gk.sum()
+        coord = np.arange(-truncate * width[d], truncate * width[d], spacing[d])
+        coord = xr.DataArray(coord, dims=d, coords={d: coord})
+        gk = gk * np.exp(-coord ** 2 / (2 * width[d] ** 2))
+    gk /= gk.sum()
     return gk
+
 
 def xndindex(sizes):
     """
@@ -145,11 +151,12 @@ def xndindex(sizes):
         iterator over dict
     """
     from itertools import repeat
-            
-    for d,k in zip(repeat(tuple(sizes.keys())),zip(np.ndindex(tuple(sizes.values())))):
-        yield {k:l for k,l in zip(d,k[0])}
 
-def xtiling(ds, nperseg, noverlap = 0, centering=False, side='left', prefix='tile_'):
+    for d, k in zip(repeat(tuple(sizes.keys())), zip(np.ndindex(tuple(sizes.values())))):
+        yield {k: l for k, l in zip(d, k[0])}
+
+
+def xtiling(ds, nperseg, noverlap=0, centering=False, side='left', prefix='tile_'):
     """
     Define tiles indexes of an xarray of abritrary shape. Name of returned coordinates are prefix+nperseg keys()
     
@@ -175,16 +182,16 @@ def xtiling(ds, nperseg, noverlap = 0, centering=False, side='left', prefix='til
 
     sizes = ds.sizes if isinstance(ds, xr.DataArray) or isinstance(ds, xr.Dataset) else ds
 
-    if isinstance(nperseg,int):
-        nperseg = dict.fromkeys(sizes.keys(),nperseg)
+    if isinstance(nperseg, int):
+        nperseg = dict.fromkeys(sizes.keys(), nperseg)
 
-    if isinstance(noverlap,int):
-        noverlap = dict.fromkeys(nperseg,noverlap)
+    if isinstance(noverlap, int):
+        noverlap = dict.fromkeys(nperseg, noverlap)
     elif nperseg.keys() != noverlap.keys():
         noverlap = {d: 0 if d not in noverlap.keys() else noverlap[d] for d in nperseg.keys()}
     else:
         pass
-    
+
     if centering is True:
         centering = dict.fromkeys(nperseg, True)
     elif centering is False:
@@ -193,54 +200,59 @@ def xtiling(ds, nperseg, noverlap = 0, centering=False, side='left', prefix='til
         centering = {d: False if d not in centering.keys() else centering[d] for d in nperseg.keys()}
     else:
         pass
-    
-    if side=='left':
+
+    if side == 'left':
         side = dict.fromkeys(nperseg, 'left')
-    elif side=='right':
+    elif side == 'right':
         side = dict.fromkeys(nperseg, 'right')
     elif nperseg.keys() != side.keys():
-        side = {d:'left' if d not in side.keys() else side[d] for d in nperseg.keys()}
+        side = {d: 'left' if d not in side.keys() else side[d] for d in nperseg.keys()}
     else:
         pass
 
-    dims = nperseg.keys() # list of dimensions to work on
-    
+    dims = nperseg.keys()  # list of dimensions to work on
+
     for d in dims:
-        if nperseg[d] in (0,None):
+        if nperseg[d] in (0, None):
             nperseg[d] = sizes[d]
-            noverlap[d]=0
-        if sizes[d]<nperseg[d]:
-            warnings.warn("Dimension '{}' ({}) is smaller than required nperseg :{}. nperseg is ajusted accordingly and noverlap forced to zero".format(d, sizes[d],nperseg[d]))
-            nperseg[d]=sizes[d]
-            noverlap[d]=0
-    
-    steps = {d:nperseg[d] - noverlap[d] for d in dims} # step between each tile
-    indices = {d:np.arange(0, sizes[d] - nperseg[d] + 1, steps[d]) for d in dims} # index of first point of each tile
-    
+            noverlap[d] = 0
+        if sizes[d] < nperseg[d]:
+            warnings.warn(
+                "Dimension '{}' ({}) is smaller than required nperseg :{}. nperseg is ajusted accordingly and noverlap forced to zero".format(
+                    d, sizes[d], nperseg[d]))
+            nperseg[d] = sizes[d]
+            noverlap[d] = 0
+
+    steps = {d: nperseg[d] - noverlap[d] for d in dims}  # step between each tile
+    indices = {d: np.arange(0, sizes[d] - nperseg[d] + 1, steps[d]) for d in dims}  # index of first point of each tile
+
     # For centering option:
     for d in dims:
         if centering[d]:
-            ishift = {'left':1,'right':0}[side[d]]
-            indices[d] = indices[d]+(sizes[d]-indices[d][-1]-nperseg[d]+ishift)//2
+            ishift = {'left': 1, 'right': 0}[side[d]]
+            indices[d] = indices[d] + (sizes[d] - indices[d][-1] - nperseg[d] + ishift) // 2
 
-    tiles_index = {d:xr.DataArray(np.empty([len(indices[d]),nperseg[d]], dtype=int), dims = [d,'__'+d]) for d,ind in nperseg.items()}
-
+    tiles_index = {d: xr.DataArray(np.empty([len(indices[d]), nperseg[d]], dtype=int), dims=[d, '__' + d]) for d, ind in
+                   nperseg.items()}
 
     for d in dims:
         for i in range(tiles_index[d].sizes[d]):
-            tiles_index[d][i] = np.arange(indices[d][i], indices[d][i]+nperseg[d])
-    
+            tiles_index[d][i] = np.arange(indices[d][i], indices[d][i] + nperseg[d])
+
     if isinstance(ds, xr.DataArray) or isinstance(ds, xr.Dataset):
-        coords = {d:ds[d][indices[d]].data+nperseg[d]//2 for d in dims}
+        coords = {d: ds[d][indices[d]].data + nperseg[d] // 2 for d in dims}
     else:
-        coords = {d:indices[d]+nperseg[d]//2 for d in dims}
-    
-    tiles_index = {d:k.assign_coords({d:coords[d]}).rename({d:prefix+d}).rename('tile_{}_index'.format(d)) for d,k in tiles_index.items()}
-    
-    for d,v in tiles_index.items():
-        v[prefix+d].attrs.update({'long_name': 'index of tile middle point','nperseg':nperseg[d], 'noverlap':noverlap[d]})
-    
+        coords = {d: indices[d] + nperseg[d] // 2 for d in dims}
+
+    tiles_index = {d: k.assign_coords({d: coords[d]}).rename({d: prefix + d}).rename('tile_{}_index'.format(d)) for d, k
+                   in tiles_index.items()}
+
+    for d, v in tiles_index.items():
+        v[prefix + d].attrs.update(
+            {'long_name': 'index of tile middle point', 'nperseg': nperseg[d], 'noverlap': noverlap[d]})
+
     return tiles_index
+
 
 def get_corner_tile(tiles):
     """
@@ -251,9 +263,10 @@ def get_corner_tile(tiles):
         (dict of xarray): same keys as tiles, values ares corners indexes only
     """
     corners = dict()
-    for d,v in tiles.items():
-        corners[d]=v[{'__'+d:[0,-1]}].rename({'__'+d:'corner_'+d})
+    for d, v in tiles.items():
+        corners[d] = v[{'__' + d: [0, -1]}].rename({'__' + d: 'corner_' + d})
     return corners
+
 
 def get_middle_tile(tiles):
     """
@@ -264,9 +277,6 @@ def get_middle_tile(tiles):
         (dict of xarray): same keys as tiles, values ares middle indexes
     """
     middle = dict()
-    for d,v in tiles.items():
-        middle[d]=v[{'__'+d:v.sizes['__'+d]//2}]
+    for d, v in tiles.items():
+        middle[d] = v[{'__' + d: v.sizes['__' + d] // 2}]
     return middle
-
-
-
