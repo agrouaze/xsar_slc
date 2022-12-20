@@ -1,6 +1,6 @@
 [project]
 name = "xsar_slc"
-requires-python = ">= 3.10"
+requires-python = ">= 3.9"
 license = {text = "MIT"}
 dependencies = [
     "xarray",
@@ -9,6 +9,7 @@ dependencies = [
     "xrft",
     "xarray-datatree",
     "cartopy",
+    "xsar"
 ]
 dynamic = ["version"]
 
@@ -17,7 +18,7 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-#packages = ["stac_fastapi.opensearx"]
+#packages = ["xsar_slc.srcipts.L1B_xspectra_IW_SLC_IFR.py"]
 
 [tool.setuptools_scm]
 fallback_version = "999"

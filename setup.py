@@ -1,4 +1,7 @@
-from setuptools import setup
-
+from setuptools import setup,find_packages
+import glob
 if __name__ == "__main__":
-    setup()
+    setup(
+        package_dir={'': 'src'},
+        packages=find_packages('src'),
+        scripts=glob.glob('src/scripts/*.py'),)
