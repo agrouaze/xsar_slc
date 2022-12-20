@@ -77,7 +77,8 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         burst.attrs.update(commons)
         burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], tile_width,
                                                 tile_overlap, **kwargs)
-        xspectra.append(burst_xspectra)#.drop(['tile_line', 'tile_sample']))
+        if burst_xspectra:
+            xspectra.append(burst_xspectra)#.drop(['tile_line', 'tile_sample']))
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
@@ -124,7 +125,8 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         burst1.attrs.update(commons)
         interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], tile_width,
                                                               tile_overlap, **kwargs)
-        xspectra.append(interburst_xspectra)#.drop(['tile_line', 'tile_sample']))
+        if interburst_xspectra:
+            xspectra.append(interburst_xspectra)#.drop(['tile_line', 'tile_sample']))
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])

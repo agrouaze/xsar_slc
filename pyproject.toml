@@ -12,11 +12,8 @@ dependencies = [
     "xrft",
     "xarray-datatree",
     "cartopy",
-    "xsar"
 ]
 dynamic = ["version"]
-[project.optional-dependencies]
-l1b = ['xsar']
 [build-system]
 requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
