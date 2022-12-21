@@ -78,7 +78,7 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], tile_width,
                                                 tile_overlap, **kwargs)
         if burst_xspectra:
-            xspectra.append(burst_xspectra)#.drop(['tile_line', 'tile_sample']))
+            xspectra.append(burst_xspectra.drop(['tile_line', 'tile_sample']))
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
@@ -126,7 +126,7 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], tile_width,
                                                               tile_overlap, **kwargs)
         if interburst_xspectra:
-            xspectra.append(interburst_xspectra)#.drop(['tile_line', 'tile_sample']))
+            xspectra.append(interburst_xspectra.drop(['tile_line', 'tile_sample']))
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
@@ -553,9 +553,11 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     weight /= weight.sum()
     smooth_dop = np.abs(mydop).mean(dim=range_dim).rolling(**{freq_azi_dim: len(weight), 'center': True}).construct(
         'window').dot(weight)
-    i0 = int(np.abs(mydop[freq_azi_dim]).argmin())  # zero frequency indice
-    ishift = int(smooth_dop.argmax()) - i0  # shift of Doppler centroid
-    mydop = mydop.roll(**{freq_azi_dim: -ishift, 'roll_coords': False})
+    # i0 = int(np.abs(mydop[freq_azi_dim]).argmin())  # zero frequency indice
+    # ishift = int(smooth_dop.argmax()) - i0  # shift of Doppler centroid
+    # mydop = mydop.roll(**{freq_azi_dim: -ishift, 'roll_coords': False})
+    centroid = float((smooth_dop*smooth_dop['freq_line']).sum()/(smooth_dop).sum())
+    mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)    
 
     # Extracting the useful part of azimuthal Doppler spectrum
     # It removes points on each side to be sure that tiling will operate correctly
