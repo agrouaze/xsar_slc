@@ -70,14 +70,8 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
     xspectra = list()
     nb_burst = dt['bursts'].sizes['burst']
-    if 'dev'  in kwargs:
-        dev = kwargs['dev']
-    else:
-        dev = False
-    if 'pol' in kwargs:
-        pol = kwargs['pol']
-    else:
-        pol = 'VV'
+    dev = kwargs.get('dev', False)
+    pol = kwargs.get('pol', 'VV')
     if dev:
         logging.info('reduce number of burst -> 2')
         nb_burst = 2
@@ -128,10 +122,7 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
     xspectra = list()
-    if 'pol' in kwargs:
-        pol = kwargs['pol']
-    else:
-        pol = 'VV'
+    pol = kwargs.get('pol', 'VV')
     for b in range(dt['bursts'].sizes['burst'] - 1):
         burst0 = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True,
                             merge_burst_annotation=True).sel(pol=pol)
@@ -192,10 +183,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
                     tile_width.keys()}  # np.rint is important for homogeneity of point numbers between bursts
 
     tiles_index = xtiling(burst, nperseg=nperseg_tile, noverlap=noverlap)
-    if 'dev'  in kwargs:
-        dev = kwargs['dev']
-    else:
-        dev = False
+    dev = kwargs.get('dev', False)
     if dev:
         logging.info('reduce number of burst for dev: 2')
         tiles_index['sample'] = tiles_index['sample'].isel({'tile_sample': slice(0, 2)})
