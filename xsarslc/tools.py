@@ -92,7 +92,7 @@ def is_ocean(polygon, landmask):
     Check if polygon only contains ocean (no land)
     Args: 
         polygon (2-tuple of lists or shapely.geometry.Polygon) : tuple of form (list of lons, list of lats) or cartopy.polygon to be checked
-        landmask (cartopy.feature.NaturalEarthFeature) : the land mask to be used
+        landmask (shapely.geometry.MultiPolygon) : the land mask to be used (eg cartopy.feature.NaturalEarthFeature)
     Return:
         (bool): True if polygon is only over water
     """
