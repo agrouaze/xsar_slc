@@ -26,22 +26,22 @@ def compute_subswath_xspectra(dt, **kwargs):
     #landmask = kwargs.pop('landmask', cartopy.feature.NaturalEarthFeature('physical', 'land', '10m'))
     kwargs['landmask'] = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
     intra_xs = compute_subswath_intraburst_xspectra(dt, **kwargs)
-
-    intra_xs = intra_xs.drop('spatial_ref')
-    intra_xs.attrs.update({'start_date': str(intra_xs.start_date)})
-    intra_xs.attrs.update({'stop_date': str(intra_xs.stop_date)})
-    intra_xs.attrs.update({'footprint': str(intra_xs.footprint)})
-    intra_xs.attrs.pop('pixel_line_m')
-    intra_xs.attrs.pop('pixel_sample_m')
+    if 'spatial_ref' in intra_xs:
+        intra_xs = intra_xs.drop('spatial_ref')
+        #intra_xs.attrs.update({'start_date': str(intra_xs.start_date)})
+        #intra_xs.attrs.update({'stop_date': str(intra_xs.stop_date)})
+        intra_xs.attrs.update({'footprint': str(intra_xs.footprint)})
+        #intra_xs.attrs.pop('pixel_line_m')
+        #intra_xs.attrs.pop('pixel_sample_m')
 
     inter_xs = compute_subswath_interburst_xspectra(dt, **kwargs)
-
-    inter_xs = inter_xs.drop('spatial_ref')
-    inter_xs.attrs.update({'start_date': str(inter_xs.start_date)})
-    inter_xs.attrs.update({'stop_date': str(inter_xs.stop_date)})
-    inter_xs.attrs.update({'footprint': str(inter_xs.footprint)})
-    inter_xs.attrs.pop('pixel_line_m')
-    inter_xs.attrs.pop('pixel_sample_m')
+    if 'spatial_ref' in inter_xs:
+        inter_xs = inter_xs.drop('spatial_ref')
+        #inter_xs.attrs.update({'start_date': str(inter_xs.start_date)})
+        #inter_xs.attrs.update({'stop_date': str(inter_xs.stop_date)})
+        inter_xs.attrs.update({'footprint': str(inter_xs.footprint)})
+        #inter_xs.attrs.pop('pixel_line_m')
+        #inter_xs.attrs.pop('pixel_sample_m')
 
     dt = datatree.DataTree.from_dict(
         {'interburst_xspectra': netcdf_compliant(inter_xs), 'intraburst_xspectra': netcdf_compliant(intra_xs)})
@@ -74,11 +74,15 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         dev = kwargs['dev']
     else:
         dev = False
+    if 'pol' in kwargs:
+        pol = kwargs['pol']
+    else:
+        pol = 'VV'
     if dev:
         logging.info('reduce number of burst -> 2')
         nb_burst = 2
     for b in range(nb_burst):
-        burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol='VV')
+        burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=pol)
         deramped_burst = deramp_burst(burst, dt)
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
         burst.load()
@@ -124,11 +128,15 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
     xspectra = list()
+    if 'pol' in kwargs:
+        pol = kwargs['pol']
+    else:
+        pol = 'VV'
     for b in range(dt['bursts'].sizes['burst'] - 1):
         burst0 = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True,
-                            merge_burst_annotation=True).sel(pol='VV')
+                            merge_burst_annotation=True).sel(pol=pol)
         burst1 = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b + 1, valid=True,
-                            merge_burst_annotation=True).sel(pol='VV')
+                            merge_burst_annotation=True).sel(pol=pol)
         burst0.attrs.update(commons)
         burst1.attrs.update(commons)
         interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], tile_width,
@@ -177,20 +185,11 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
 
     nperseg_tile = {d: int(np.rint(tile_width[d] / spacing[d])) for d in tile_width.keys()}
 
-    # print('mean_ground_spacing ',mean_ground_spacing)
-    # print('azimuth_spacing ',azimuth_spacing)
-    # print('spacing ',spacing)
-    # print('nperseg_tile ',nperseg_tile)
-
     if tile_overlap in (0., None):
         noverlap = {d: 0 for k in nperseg_tile.keys()}
     else:
         noverlap = {d: int(np.rint(tile_overlap[d] / spacing[d])) for d in
                     tile_width.keys()}  # np.rint is important for homogeneity of point numbers between bursts
-
-    # print('noverlap ',noverlap)
-    # print('burst', burst)
-    # print('burst sizes', burst.sizes)
 
     tiles_index = xtiling(burst, nperseg=nperseg_tile, noverlap=noverlap)
     if 'dev'  in kwargs:
@@ -257,7 +256,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
             water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
         else:
             water_only = True
-        print('water_only : ', water_only)
+        logging.debug('water_only : %s', water_only)
         # ------------------------------------------------
         if water_only:
             # sub = tiled_burst[i].swap_dims({'n_line':'line','n_sample':'sample'})
@@ -873,7 +872,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
 
 
 def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azimuth_spacing, azimuth_dim='line',
-                                 nperseg={'sample': 512, 'line': None}, noverlap={'sample': 256, 'line': 0}):
+                                 nperseg={'sample': 512, 'line': None}, noverlap={'sample': 256, 'line': 0},**kwargs):
     """
     Compute cross spectrum between mod0 and mod1 using a 2D Welch method (periodograms).
     
