@@ -82,11 +82,11 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
-    xspectra = xr.combine_by_coords([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra],
-                                    combine_attrs='drop_conflicts')  # rearange xs on burst
+    # xspectra = xr.combine_by_coords([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra],
+                                    # combine_attrs='drop_conflicts')  # rearange xs on burst
     # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
     # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
-    # xspectra = xr.concat(xspectra, dim='burst')
+    xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
     xspectra = xspectra.assign_coords({'k_rg': xspectra.k_rg, 'k_az': xspectra.k_az})  # move wavenumbers as coordinates
     return xspectra
 
@@ -130,11 +130,11 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
-    xspectra = xr.combine_by_coords([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra],
+    # xspectra = xr.combine_by_coords([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra],
                                     combine_attrs='drop_conflicts')  # rearange xs on burst
     # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
     # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
-    # xspectra = xr.concat(xspectra, dim='burst')
+    xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
     xspectra = xspectra.assign_coords({'k_rg': xspectra.k_rg, 'k_az': xspectra.k_az})  # move wavenumbers as coordinates
     return xspectra
 
