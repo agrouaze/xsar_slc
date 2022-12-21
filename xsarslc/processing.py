@@ -23,9 +23,9 @@ def compute_subswath_xspectra(dt, **kwargs):
     import cartopy
     from xsarslc.tools import netcdf_compliant
 
-    landmask = kwargs.pop('landmask', cartopy.feature.NaturalEarthFeature('physical', 'land', '10m'))
-
-    intra_xs = compute_subswath_intraburst_xspectra(dt, landmask=landmask, **kwargs)
+    #landmask = kwargs.pop('landmask', cartopy.feature.NaturalEarthFeature('physical', 'land', '10m'))
+    kwargs['landmask'] = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
+    intra_xs = compute_subswath_intraburst_xspectra(dt, **kwargs)
 
     intra_xs = intra_xs.drop('spatial_ref')
     intra_xs.attrs.update({'start_date': str(intra_xs.start_date)})
@@ -34,7 +34,7 @@ def compute_subswath_xspectra(dt, **kwargs):
     intra_xs.attrs.pop('pixel_line_m')
     intra_xs.attrs.pop('pixel_sample_m')
 
-    inter_xs = compute_subswath_interburst_xspectra(dt, landmask=landmask, **kwargs)
+    inter_xs = compute_subswath_interburst_xspectra(dt, **kwargs)
 
     inter_xs = inter_xs.drop('spatial_ref')
     inter_xs.attrs.update({'start_date': str(inter_xs.start_date)})
