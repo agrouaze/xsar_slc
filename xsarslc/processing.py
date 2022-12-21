@@ -69,7 +69,15 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
     xspectra = list()
-    for b in range(dt['bursts'].sizes['burst']):
+    nb_burst = dt['bursts'].sizes['burst']
+    if 'dev'  in kwargs:
+        dev = kwargs['dev']
+    else:
+        dev = False
+    if dev:
+        logging.info('reduce number of burst -> 2')
+        nb_burst = 2
+    for b in range(nb_burst):
         burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol='VV')
         deramped_burst = deramp_burst(burst, dt)
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
@@ -185,6 +193,13 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     # print('burst sizes', burst.sizes)
 
     tiles_index = xtiling(burst, nperseg=nperseg_tile, noverlap=noverlap)
+    if 'dev'  in kwargs:
+        dev = kwargs['dev']
+    else:
+        dev = False
+    if dev:
+        logging.info('reduce number of burst for dev: 2')
+        tiles_index['sample'] = tiles_index['sample'].isel({'tile_sample': slice(0, 2)})
     tiled_burst = burst[tiles_index].drop(['sample', 'line']).swap_dims({'__' + d: d for d in tile_width.keys()})
     tiles_sizes = {d: k for d, k in tiled_burst.sizes.items() if 'tile_' in d}
 
