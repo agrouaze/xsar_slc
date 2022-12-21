@@ -551,7 +551,7 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
                      true_amplitude=True)
 
     # Finding an removing Doppler centroid
-    weight = xr.DataArray(np.hanning(100), dims=['window'])  # window for smoothing
+    weight = xr.DataArray(np.hanning(min(20,Np//10+1)), dims=['window'])  # window for smoothing
     weight /= weight.sum()
     smooth_dop = np.abs(mydop).mean(dim=range_dim).rolling(**{freq_azi_dim: len(weight), 'center': True}).construct(
         'window').dot(weight)
