@@ -1,6 +1,6 @@
-##################################################
+######################################################################
 xsarslc: functions to compute cross spectra from TOPS SLC SAR products
-##################################################
+######################################################################
 
 **xsarslc** is a library to compute cross spectrum from level 1 SAR SLC products. Objets manipulated are all `xarray`_.
 
@@ -18,7 +18,8 @@ Overview
 
     **xsarslc** can compute both intra burst and inter (i.e. overlapping bursts) burst cross spectrum.
 
-    To have comparable cross spectrum among bursts and sub-swaths, we choose to have constant `dk` values, it means that the number of pixels used to compute the cross spectrum is not always the same.
+    To have comparable cross spectrum among bursts and sub-swaths, we choose to have constant `dk` values,
+    it means that the number of pixels used to compute the cross spectrum is not always the same.
 
     The algorithm is performing 4 different sub-setting in the original complex digital number images:
 
@@ -38,7 +39,7 @@ Examples
 .. note::
     here are some examples of usage
 
-* :doc:`examples/xsar`
+* :doc:`examples/xspec_IW_intra_and_inter_burst`
 
 Reference
 .........
@@ -67,7 +68,7 @@ Last documentation build: |today|
    :hidden:
    :caption: Examples
 
-   examples/xsar
+   examples/xspec_IW_intra_and_inter_burst
 
 .. toctree::
    :maxdepth: 1
