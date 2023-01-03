@@ -123,7 +123,12 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
     xspectra = list()
     pol = kwargs.get('pol', 'VV')
-    for b in range(dt['bursts'].sizes['burst'] - 1):
+    nb_burst = dt['bursts'].sizes['burst'] - 1
+    dev = kwargs.get('dev', False)
+    if dev:
+        logging.info('reduce number of burst -> 2')
+        nb_burst = 2
+    for b in range(nb_burst):
         burst0 = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True,
                             merge_burst_annotation=True).sel(pol=pol)
         burst1 = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b + 1, valid=True,
