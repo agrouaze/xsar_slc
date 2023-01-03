@@ -12,6 +12,7 @@ dependencies = [
     "xrft",
     "xarray-datatree",
     "cartopy",
+    "importlib_resources"
 ]
 dynamic = ["version"]
 [build-system]

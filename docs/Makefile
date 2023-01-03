@@ -19,3 +19,7 @@ help:
 %: Makefile
 	pip install -r ../requirements_doc.txt
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+# add github action
+github:
+	@make html
+	@cp -a _build/html/. ../docs
