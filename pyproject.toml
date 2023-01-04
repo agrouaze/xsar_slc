@@ -8,6 +8,7 @@ classifiers = [
 dependencies = [
     "xarray",
     "numpy",
+    "netCDF4",
     "shapely",
     "xrft",
     "xarray-datatree",
