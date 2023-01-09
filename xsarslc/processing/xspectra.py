@@ -103,7 +103,6 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
         # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
         xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
-        xspectra = xspectra.assign_coords({'k_rg': xspectra.k_rg, 'k_az': xspectra.k_az})  # move wavenumbers as coordinates
     return xspectra
 
 
@@ -160,7 +159,6 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
         # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
         xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
-        xspectra = xspectra.assign_coords({'k_rg': xspectra.k_rg, 'k_az': xspectra.k_az})  # move wavenumbers as coordinates
     return xspectra
 
 
