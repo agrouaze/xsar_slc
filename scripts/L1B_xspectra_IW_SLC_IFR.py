@@ -6,7 +6,7 @@ purpose: produce nc files from SAFE IW SLC containing cartesian x-spec computed 
  on intra and inter bursts
 """
 
-import xsarslc.processing as proc
+import xsarslc.processing.xspectra as proc
 import warnings
 import xsar
 #warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -27,6 +27,7 @@ PRODUCT_VERSION = '0.3'  # add fix for freq_sample + subgroups with subswath
 PRODUCT_VERSION = '0.4'  # 12dec22 : only one tiff (one subswath) for one .nc output
 PRODUCT_VERSION = '0.5'  # 14dec22 : integration of functions to avoid loading geoloc fields at high resolution
 PRODUCT_VERSION = '0.6'  # 20dec22 : xsar_slc repo with Nouguier (added landmask, no HR except DN, tau computation, elevation,..)
+PRODUCT_VERSION = '0.7'  # 9jan23 : bug fix for burst empty + refactoring Nouguier
 # stream = open(os.path.join(os.path.dirname(__file__), 'configuration_L1B_xspectra_IW_SLC_IFR_v1.yml'), 'r')
 # conf = load(stream, Loader=Loader)  # TODO : add argument to compute_subswath_xspectra(conf=conf)
 def get_memory_usage():
@@ -65,17 +66,20 @@ def generate_IW_L1Bxspec_product(slc_iw_path,output_filename, polarization=None,
     one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,pol=polarization.upper(),
                                                                dev=dev,compute_intra_xspec=True,
                                                                compute_inter_xspec=True)
-    logging.info('xspec intra and inter ready for %s', slc_iw_path)
-    logging.debug('one_subswath_xspectrum = %s', one_subswath_xspectrum_dt)
-    one_subswath_xspectrum_dt.attrs['version_xsar'] = xsar.__version__
-    one_subswath_xspectrum_dt.attrs['version_xsarsea'] = xsarslc.__version__
-    one_subswath_xspectrum_dt.attrs['processor'] = __file__
-    one_subswath_xspectrum_dt.attrs['generation_date'] = datetime.datetime.today().strftime('%Y-%b-%d')
-    if not os.path.exists(os.path.dirname(output_filename)):
-        os.makedirs(os.path.dirname(output_filename),0o0775)
-        logging.info('makedir %s',os.path.dirname(output_filename))
-    one_subswath_xspectrum_dt.to_netcdf(output_filename)
-    logging.info('successfuly written %s', output_filename)
+    if one_subswath_xspectrum_dt:
+        logging.info('xspec intra and inter ready for %s', slc_iw_path)
+        logging.debug('one_subswath_xspectrum = %s', one_subswath_xspectrum_dt)
+        one_subswath_xspectrum_dt.attrs['version_xsar'] = xsar.__version__
+        one_subswath_xspectrum_dt.attrs['version_xsarslc'] = xsarslc.__version__
+        one_subswath_xspectrum_dt.attrs['processor'] = __file__
+        one_subswath_xspectrum_dt.attrs['generation_date'] = datetime.datetime.today().strftime('%Y-%b-%d')
+        if not os.path.exists(os.path.dirname(output_filename)):
+            os.makedirs(os.path.dirname(output_filename),0o0775)
+            logging.info('makedir %s',os.path.dirname(output_filename))
+        one_subswath_xspectrum_dt.to_netcdf(output_filename)
+        logging.info('successfuly written %s', output_filename)
+    else:
+        logging.info('no inter nor intra xspectra available in this subswath')
 
 
 if __name__ == '__main__':
