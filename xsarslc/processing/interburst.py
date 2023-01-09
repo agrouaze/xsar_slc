@@ -11,8 +11,8 @@ from xsarslc.tools import xtiling, xndindex
 
 def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile_width, tile_overlap,
                                     lowpass_width={'sample': 1000., 'line': 1000.},
-                                    periodo_width={'sample': 2000., 'line': 1400.},
-                                    periodo_overlap={'sample': 1000., 'line': 700.}, **kwargs):
+                                    periodo_width={'sample': 2000., 'line': 1200.},
+                                    periodo_overlap={'sample': 1000., 'line': 600.}, **kwargs):
     """
     Divide bursts overlaps in tiles and compute inter-burst cross-spectra using compute_interburst_xspectrum() function.
 
