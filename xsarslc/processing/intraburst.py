@@ -38,10 +38,14 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     azimuth_spacing = float(burst['lineSpacing'])
     spacing = {'sample': mean_ground_spacing, 'line': azimuth_spacing}
 
-    nperseg_tile = {d: int(np.rint(tile_width[d] / spacing[d])) for d in tile_width.keys()}
+    if tile_width:
+        nperseg_tile = {d: int(np.rint(tile_width[d] / spacing[d])) for d in tile_width.keys()}
+    else:
+        nperseg_tile = burst.sizes
+        tile_width = {d:nperseg_tile[d]*spacing[d] for d in nperseg_tile.keys()}
 
     if tile_overlap in (0., None):
-        noverlap = {d: 0 for k in nperseg_tile.keys()}
+        noverlap = {d: 0 for d in nperseg_tile.keys()}
     else:
         noverlap = {d: int(np.rint(tile_overlap[d] / spacing[d])) for d in
                     tile_width.keys()}  # np.rint is important for homogeneity of point numbers between bursts
@@ -91,6 +95,9 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
         dim=['flats', 'flatl'])
     vel = np.sqrt(orbit['velocity_x'] ** 2 + orbit['velocity_y'] ** 2 + orbit['velocity_z'] ** 2)
     corner_time = burst['time'][{'line': tiles_corners['line']}]
+
+    # return vel, corner_time, tiles_corners
+
     corner_velos = vel.interp(time=corner_time)
     # --------------------------------------------------------------------------------------
 
@@ -131,7 +138,9 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
             azimuth_spacing = float(sub['lineSpacing'])
             synthetic_duration = celerity * mean_slant_range / (
                         2 * burst.attrs['radar_frequency'] * mean_velocity * azimuth_spacing)
-            mod = compute_modulation(sub['deramped_digital_number'], lowpass_width=lowpass_width,
+
+            mod = sub['digital_number'] if sub.swath=='WV' else sub['deramped_digital_number']
+            mod = compute_modulation(mod, lowpass_width=lowpass_width,
                                      spacing={'sample': ground_spacing, 'line': azimuth_spacing})
             xspecs = compute_intraburst_xspectrum(mod, mean_incidence, slant_spacing, azimuth_spacing,
                                                   synthetic_duration, nperseg=nperseg_periodo,
@@ -312,10 +321,9 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
         raise ValueError('Look windowing is not available.')
 
     looks_spec = list()
-    looks = mydop[look_tiles].drop(['freq_' + azimuth_dim]).swap_dims({'__' + d: d for d in ['freq_' + azimuth_dim]})
+    looks = mydop[look_tiles].drop(['freq_' + azimuth_dim]).swap_dims({'__' + d: d for d in ['freq_' + azimuth_dim]}).drop('look_freq_line')
     looks_sizes = {d: k for d, k in looks.sizes.items() if 'look_' in d}
 
-    # for l in range(look_tiles.sizes[freq_azi_dim]):
     for l in xndindex(looks_sizes):
         look = looks[l]
         look = xrft.ifft(look.assign_coords({freq_azi_dim: np.arange(-(nperlook // 2),

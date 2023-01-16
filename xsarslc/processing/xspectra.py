@@ -16,7 +16,7 @@ cartopy.config['pre_existing_data_dir'] = '/home1/datahome/agrouaze/.local/share
 
 def compute_subswath_xspectra(dt, **kwargs):
     """
-    Main function to compute inter and intra burst spectra. It has to be modified to be able to change Xspectra options
+    Main function to compute IW inter and intra burst spectra. It has to be modified to be able to change Xspectra options
     Keyword Args:
         kwargs (dict): keyword arguments passed to called functions. landmask, ...
     """
@@ -55,8 +55,40 @@ def compute_subswath_xspectra(dt, **kwargs):
     return dt
 
 
+def compute_WV_intraburst_xspectra(dt, tile_width=None, tile_overlap=None, polarization='VV', **kwargs):
+    """
+    Main function to compute WV xspectra (tiling is available)
+    Note: If requested tile is larger than the size of availabe data (or set to None). tile will be set to maximum available size
+    Args:
+        dt (xarray.Datatree): datatree contraining subswath information
+        tile_width (dict, optional): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}. Default is all imagette
+        tile_overlap (dict, optional): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}. Default is no overlap
+        polarization (str, optional): polarization to be selected for xspectra computation
+    
+    Keyword Args:
+        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(), landmask can be added in kwargs
+        
+    Return:
+        (xarray): xspectra.
+    """
+    from xsarslc.processing.intraburst import tile_burst_to_xspectra
+
+    commons = {'radar_frequency': float(dt['image']['radarFrequency']),
+               'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
+               'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
+               'swath': dt.attrs['swath']}
+
+    burst = dt['measurement'].ds.sel(pol=polarization)
+    burst.load()
+    burst.attrs.update(commons)
+    xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], tile_width, tile_overlap, **kwargs)
+    xspectra = xspectra.drop(['tile_line', 'tile_sample']) # dropping coordinate is important to not artificially multiply the dimensions
+    if xspectra.sizes['tile_line']==xspectra.sizes['tile_sample']==1: # In WV mode, it will probably be only one tile
+        xspectra = xspectra.squeeze(['tile_line', 'tile_sample'])
+    return xspectra
+
 def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 20.e3},
-                                         tile_overlap={'sample': 10.e3, 'line': 10.e3}, **kwargs):
+                                         tile_overlap={'sample': 10.e3, 'line': 10.e3}, polarization='VV', **kwargs):
     """
     Compute IW subswath intra-burst xspectra per tile
     Note: If requested tile is larger than the size of availabe data. tile will be set to maximum available size
@@ -64,6 +96,7 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         dt (xarray.Datatree): datatree contraining subswath information
         tile_width (dict): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         tile_overlap (dict): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        polarization (str, optional): polarization to be selected for xspectra computation
     
     Keyword Args:
         kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(), landmask can be added in kwargs
@@ -76,16 +109,17 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
-               'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
+               'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
+               'swath': dt.attrs['swath']}
     xspectra = list()
     nb_burst = dt['bursts'].sizes['burst']
     dev = kwargs.get('dev', False)
-    pol = kwargs.get('pol', 'VV')
+    
     if dev:
         logging.info('reduce number of burst -> 2')
         nb_burst = 2
     for b in range(nb_burst):
-        burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=pol)
+        burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
         deramped_burst = deramp_burst(burst, dt)
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
         burst.load()
@@ -93,7 +127,7 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], tile_width,
                                                 tile_overlap, **kwargs)
         if burst_xspectra:
-            xspectra.append(burst_xspectra.drop(['tile_line', 'tile_sample']))
+            xspectra.append(burst_xspectra.drop(['tile_line', 'tile_sample'])) # dropping coordinate is important to not artificially multiply the dimensions
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     if xspectra:
@@ -107,7 +141,7 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
 
 
 def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 20.e3},
-                                         tile_overlap={'sample': 10.e3, 'line': 10.e3}, **kwargs):
+                                         tile_overlap={'sample': 10.e3, 'line': 10.e3}, polarization='VV', **kwargs):
     """
     Compute IW subswath inter-burst xspectra. No deramping is applied since only magnitude is used.
     
@@ -119,6 +153,7 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         dt (xarray.Datatree): datatree contraining subswath information
         tile_width (dict): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         tile_overlap (dict): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        polarization (str, optional): polarization to be selected for xspectra computation
     
     Keyword Args:
         kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra()
@@ -133,7 +168,6 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
     xspectra = list()
-    pol = kwargs.get('pol', 'VV')
     nb_burst = dt['bursts'].sizes['burst'] - 1
     dev = kwargs.get('dev', False)
     if dev:
@@ -141,9 +175,9 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         nb_burst = 2
     for b in range(nb_burst):
         burst0 = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True,
-                            merge_burst_annotation=True).sel(pol=pol)
+                            merge_burst_annotation=True).sel(pol=polarization)
         burst1 = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b + 1, valid=True,
-                            merge_burst_annotation=True).sel(pol=pol)
+                            merge_burst_annotation=True).sel(pol=polarization)
         burst0.attrs.update(commons)
         burst1.attrs.update(commons)
         interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], tile_width,
@@ -160,7 +194,6 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
         xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
     return xspectra
-
 
 def compute_modulation(ds, lowpass_width, spacing):
     """
