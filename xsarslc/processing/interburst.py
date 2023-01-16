@@ -115,8 +115,8 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
     # corner_lat = burst['latitude'][tiles_corners].rename('corner_latitude').drop(['line','sample'])
 
     xs = list()  # np.empty(tuple(tiles_sizes.values()), dtype=object)
-    taus = xr.DataArray(np.empty(tuple(tiles_sizes.values()), dtype='float'), dims=tiles_sizes.keys(), name='tau')
-    cutoff = xr.DataArray(np.empty(tuple(tiles_sizes.values()), dtype='float'), dims=tiles_sizes.keys(), name='cutoff')
+    # taus = xr.DataArray(np.empty(tuple(tiles_sizes.values()), dtype='float'), dims=tiles_sizes.keys(), name='tau')
+    # cutoff = xr.DataArray(np.empty(tuple(tiles_sizes.values()), dtype='float'), dims=tiles_sizes.keys(), name='cutoff')
 
     for i in xndindex(tiles_sizes):
         # ------ checking if we are over water only ------
@@ -165,8 +165,6 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
                                                   nperseg=nperseg_periodo, noverlap=noverlap_periodo, **kwargs)
             xspecs_m = xspecs.mean(dim=['periodo_line', 'periodo_sample'],
                                    keep_attrs=True)  # averaging all the periodograms in each tile
-            # xs[tuple(i.values())] = xspecs_m
-            xs.append(xspecs_m)
             # ------------- tau ------------------
             antenna_velocity = np.radians(sub.attrs['azimuth_steering_rate']) * mean_slant_range
             ground_velocity = azimuth_spacing / sub.attrs['azimuth_time_interval']
@@ -177,15 +175,14 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
                 'burst']) * azimuth_spacing  # distance from begining of the burst
             tau = (sub1['sensingTime'] - sub0['sensingTime']) / np.timedelta64(1, 's') + (
                         dist1 - dist0) / scan_velocity  # The division by timedelta64(1,s) is to convert in seconds
-            taus[i] = tau.item()
+            tau = xr.DataArray(float(tau), name='tau', attrs={'long_name': 'delay between two successive acquisitions', 'units': 's'})
             # ------------- cut-off --------------
-            k_rg = xspecs_m.k_rg
-            k_az = xspecs_m.k_az
-            xspecs_m = xspecs_m['interburst_xspectra']
-            xspecs_m = xspecs_m.assign_coords({'k_rg': k_rg, 'k_az': k_az}).swap_dims(
-                {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
-            # return xspecs
-            cutoff[i] = compute_azimuth_cutoff(xspecs_m)
+            xs_cut = xspecs_m.swap_dims({'freq_sample': 'k_rg', 'freq_line': 'k_az'})
+            cutoff = compute_azimuth_cutoff(xs_cut)
+            cutoff = xr.DataArray(float(cutoff), name='cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
+            mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
+            xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset()]))
+
 
     if not xs:  # All tiles are over land -> no xspectra available
         return
@@ -206,15 +203,16 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
     # xs = [list(a) for a in list(xs)] # must be generalized for larger number of dimensions
     # xs = xr.combine_nested(xs, concat_dim=tiles_sizes.keys(), combine_attrs='drop_conflicts')
 
-    taus.attrs.update({'long_name': 'delay between two successive acquisitions', 'units': 's'})
-    cutoff.attrs.update({'long_name': 'Azimuthal cut-off', 'units': 'm'})
+    # taus.attrs.update({'long_name': 'delay between two successive acquisitions', 'units': 's'})
+    # cutoff.attrs.update({'long_name': 'Azimuthal cut-off', 'units': 'm'})
 
     # tiles_middle = get_middle_tile(tiles_index)
     # middle_lon = burst['longitude'][tiles_middle].rename('longitude')
     # middle_lat = burst['latitude'][tiles_middle].rename('latitude')
-
-    xs = xr.merge([xs, taus.to_dataset(), cutoff.to_dataset(), corner_lons.to_dataset(), corner_lats.to_dataset()],
-                  combine_attrs='drop_conflicts')
+    # xs = xr.merge([xs, taus.to_dataset(), cutoff.to_dataset(), corner_lons.to_dataset(), corner_lats.to_dataset()],
+    #               combine_attrs='drop_conflicts')
+    xs = xr.merge([xs, corner_lons.to_dataset(), corner_lats.to_dataset()], combine_attrs='drop_conflicts')
+    
     xs = xs.assign_coords({'longitude': middle_lons,
                            'latitude': middle_lats})  # This line also ensures adding line/sample coordinates too !! DO NOT REMOVE
     xs.attrs.update(burst.attrs)
@@ -284,8 +282,9 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
                         dims='freq_' + azimuth_dim, name='k_az',
                         attrs={'long_name': 'wavenumber in azimuth direction', 'units': 'rad/m'})
     # out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az}).swap_dims({'freq_'+range_dim:'k_rg', 'freq_'+azimuth_dim:'k_az'})
-    out = xr.merge([out, k_rg.to_dataset(), k_az.to_dataset()],
-                   combine_attrs='drop_conflicts')  # Adding .to_dataset() ensures promote_attrs=False
+    out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az})
+    # out = xr.merge([out, k_rg.to_dataset(), k_az.to_dataset()],
+    #                combine_attrs='drop_conflicts')  # Adding .to_dataset() ensures promote_attrs=False
     out.attrs.update({'periodogram_nperseg_' + range_dim: nperseg[range_dim],
                       'periodogram_nperseg_' + azimuth_dim: nperseg[azimuth_dim],
                       'periodogram_noverlap_' + range_dim: noverlap[range_dim],
