@@ -38,10 +38,14 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     azimuth_spacing = float(burst['lineSpacing'])
     spacing = {'sample': mean_ground_spacing, 'line': azimuth_spacing}
 
-    nperseg_tile = {d: int(np.rint(tile_width[d] / spacing[d])) for d in tile_width.keys()}
+    if tile_width:
+        nperseg_tile = {d: int(np.rint(tile_width[d] / spacing[d])) for d in tile_width.keys()}
+    else:
+        nperseg_tile = burst.sizes
+        tile_width = {d:nperseg_tile[d]*spacing[d] for d in nperseg_tile.keys()}
 
     if tile_overlap in (0., None):
-        noverlap = {d: 0 for k in nperseg_tile.keys()}
+        noverlap = {d: 0 for d in nperseg_tile.keys()}
     else:
         noverlap = {d: int(np.rint(tile_overlap[d] / spacing[d])) for d in
                     tile_width.keys()}  # np.rint is important for homogeneity of point numbers between bursts
@@ -91,12 +95,13 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
         dim=['flats', 'flatl'])
     vel = np.sqrt(orbit['velocity_x'] ** 2 + orbit['velocity_y'] ** 2 + orbit['velocity_z'] ** 2)
     corner_time = burst['time'][{'line': tiles_corners['line']}]
+
+    # return vel, corner_time, tiles_corners
+
     corner_velos = vel.interp(time=corner_time)
     # --------------------------------------------------------------------------------------
 
     xs = list()  # np.empty(tuple(tiles_sizes.values()), dtype=object)
-    taus = xr.DataArray(np.empty(tuple(tiles_sizes.values()), dtype='float'), dims=tiles_sizes.keys(), name='tau')
-    cutoff = xr.DataArray(np.empty(tuple(tiles_sizes.values()), dtype='float'), dims=tiles_sizes.keys(), name='cutoff')
 
     for i in xndindex(tiles_sizes):
         # ------ checking if we are over water only ------
@@ -133,26 +138,27 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
             azimuth_spacing = float(sub['lineSpacing'])
             synthetic_duration = celerity * mean_slant_range / (
                         2 * burst.attrs['radar_frequency'] * mean_velocity * azimuth_spacing)
-            mod = compute_modulation(sub['deramped_digital_number'], lowpass_width=lowpass_width,
+
+            mod = sub['digital_number'] if sub.swath=='WV' else sub['deramped_digital_number']
+            mod = compute_modulation(mod, lowpass_width=lowpass_width,
                                      spacing={'sample': ground_spacing, 'line': azimuth_spacing})
             xspecs = compute_intraburst_xspectrum(mod, mean_incidence, slant_spacing, azimuth_spacing,
                                                   synthetic_duration, nperseg=nperseg_periodo,
                                                   noverlap=noverlap_periodo, **kwargs)
             xspecs_m = xspecs.mean(dim=['periodo_line', 'periodo_sample'],
                                    keep_attrs=True)  # averaging all the periodograms in each tile
-            # xs[tuple(i.values())] = xspecs_m
-            xs.append(xspecs_m)
+            
             # ------------- tau ----------------
-            taus[i] = float(xspecs.attrs['tau'])
+            tau = float(xspecs.attrs['tau'])
+            tau = xr.DataArray(float(tau), name='tau', attrs={'long_name': 'delay between two successive looks', 'units': 's'})
             # ------------- cut-off ------------
-            cutoff_tau = [str(i) + 'tau' for i in [1, 2, 3, 0] if str(i) + 'tau' in xspecs_m.dims][
-                0]  # which tau is used to compute azimuthal cutoff
-            k_rg = xspecs_m.k_rg
-            k_az = xspecs_m.k_az
-            xspecs_m = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau)
-            xspecs_m = xspecs_m.assign_coords({'k_rg': k_rg, 'k_az': k_az}).swap_dims(
+            cutoff_tau = [str(i) + 'tau' for i in [1, 2, 3, 0] if str(i) + 'tau' in xspecs_m.dims][0]  # tau used to compute azimuthal cutoff
+            xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
                 {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
-            cutoff[i] = compute_azimuth_cutoff(xspecs_m)
+            cutoff = compute_azimuth_cutoff(xs_cut)
+            cutoff = xr.DataArray(float(cutoff), name='cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
+            mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
+            xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset()]))
 
     if not xs:  # All tiles are over land -> no xspectra available
         return
@@ -173,11 +179,13 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     # xs = xr.combine_nested(xs, concat_dim=tiles_sizes.keys(), combine_attrs='drop_conflicts')
     # xs = xs.assign_coords(tiles.coords)
     # tau
-    taus.attrs.update({'long_name': 'delay between two successive looks', 'units': 's'})
-    cutoff.attrs.update({'long_name': 'Azimuthal cut-off', 'units': 'm'})
+    # taus.attrs.update({'long_name': 'delay between two successive looks', 'units': 's'})
+    # cutoff.attrs.update({'long_name': 'Azimuthal cut-off', 'units': 'm'})
 
-    xs = xr.merge([xs, taus.to_dataset(), cutoff.to_dataset(), corner_lons.to_dataset(), corner_lats.to_dataset()],
+    xs = xr.merge([xs, corner_lons.to_dataset(), corner_lats.to_dataset()],
                   combine_attrs='drop_conflicts')
+    # xs = xr.merge([xs, taus.to_dataset(), cutoff.to_dataset(), corner_lons.to_dataset(), corner_lats.to_dataset()],
+    #               combine_attrs='drop_conflicts')
     xs = xs.assign_coords({'longitude': middle_lons,
                            'latitude': middle_lats})  # This line also ensures adding line/sample coordinates too !! DO NOT REMOVE
     xs.attrs.update(burst.attrs)
@@ -243,8 +251,9 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
                         dims='freq_' + azimuth_dim, name='k_az',
                         attrs={'long_name': 'wavenumber in azimuth direction', 'units': 'rad/m'})
     # out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az}).swap_dims({'freq_'+range_dim:'k_rg', 'freq_'+azimuth_dim:'k_az'})
-    out = xr.merge([out, k_rg.to_dataset(), k_az.to_dataset()],
-                   combine_attrs='drop_conflicts')  # Adding .to_dataset() ensures promote_attrs=False
+    # out = xr.merge([out, k_rg.to_dataset(), k_az.to_dataset()],
+    #                combine_attrs='drop_conflicts')  # Adding .to_dataset() ensures promote_attrs=False
+    out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az})
     out.attrs.update({'periodogram_nperseg_' + range_dim: nperseg[range_dim],
                       'periodogram_nperseg_' + azimuth_dim: nperseg[azimuth_dim],
                       'periodogram_noverlap_' + range_dim: noverlap[range_dim],
@@ -312,10 +321,9 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
         raise ValueError('Look windowing is not available.')
 
     looks_spec = list()
-    looks = mydop[look_tiles].drop(['freq_' + azimuth_dim]).swap_dims({'__' + d: d for d in ['freq_' + azimuth_dim]})
+    looks = mydop[look_tiles].drop(['freq_' + azimuth_dim]).swap_dims({'__' + d: d for d in ['freq_' + azimuth_dim]}).drop('look_freq_line')
     looks_sizes = {d: k for d, k in looks.sizes.items() if 'look_' in d}
 
-    # for l in range(look_tiles.sizes[freq_azi_dim]):
     for l in xndindex(looks_sizes):
         look = looks[l]
         look = xrft.ifft(look.assign_coords({freq_azi_dim: np.arange(-(nperlook // 2),
