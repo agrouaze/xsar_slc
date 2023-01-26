@@ -282,6 +282,7 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     """
     # import matplotlib.pyplot as plt
     import xrft
+    from xsarslc.processing.xspectra import get_centroid
 
     if nlooks < 1:
         raise ValueError('Number of look must be greater than 0')
@@ -296,18 +297,20 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     nperlook = int(np.rint(look_width * Np))  # number of point perlook in azimuth direction
     noverlap = int(np.rint(look_overlap * look_width * Np))  # number of overlap point
 
-    mydop = xrft.fft(slc, dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True,
-                     true_amplitude=True)
-
+    # mydop = xrft.fft(slc, dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True,
+                     # true_amplitude=True)
     # Finding an removing Doppler centroid
-    weight = xr.DataArray(np.hanning(min(20,Np//10+1)), dims=['window'])  # window for smoothing
-    weight /= weight.sum()
-    smooth_dop = np.abs(mydop).mean(dim=range_dim).rolling(**{freq_azi_dim: len(weight), 'center': True}).construct(
-        'window').dot(weight)
+    # weight = xr.DataArray(np.hanning(min(20,Np//10+1)), dims=['window'])  # window for smoothing
+    # weight /= weight.sum()
+    # smooth_dop = np.abs(mydop).mean(dim=range_dim).rolling(**{freq_azi_dim: len(weight), 'center': True}).construct(
+    #     'window').dot(weight)
     # i0 = int(np.abs(mydop[freq_azi_dim]).argmin())  # zero frequency indice
     # ishift = int(smooth_dop.argmax()) - i0  # shift of Doppler centroid
     # mydop = mydop.roll(**{freq_azi_dim: -ishift, 'roll_coords': False})
-    centroid = float((smooth_dop*smooth_dop['freq_line']).sum()/(smooth_dop).sum())
+    # centroid = float((smooth_dop*smooth_dop['freq_line']).sum()/(smooth_dop).sum())
+    
+    mydop = xrft.power_spectrum(slc, dim=azimuth_dim)
+    centroid = get_centroid(mydop, dim=freq_azi_dim, method='maxfit')
     mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)    
 
     # Extracting the useful part of azimuthal Doppler spectrum
