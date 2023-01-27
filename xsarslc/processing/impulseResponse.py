@@ -126,7 +126,7 @@ def compute_WV_Impulse_Response(dt, tile_width=None, tile_overlap=None, polariza
                            lowpass_width={'sample': 1000., 'line': 1000.},
                            periodo_width={'sample': 2000., 'line': 4000.},
                            periodo_overlap={'sample': 1000., 'line': 2000.})
-    
+
     IRs = xr.merge([IR_range, IR_azimuth]).drop(['tile_line', 'tile_sample'])
     
     return IRs
@@ -330,7 +330,7 @@ def compute_rg_az_response(slc, mean_incidence, slant_spacing, azimuth_spacing,
                         dims='freq_' + range_dim, name='k_rg',
                         attrs={'long_name': 'wavenumber in range direction', 'units': 'rad/m'})
     k_srg = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(nperseg[range_dim], slant_spacing / (2 * np.pi))),
-                        dims='freq_' + range_dim, name='k_rg',
+                        dims='freq_' + range_dim, name='k_srg',
                         attrs={'long_name': 'wavenumber in slant range direction', 'units': 'rad/m'})
     k_az = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(nperseg[azimuth_dim], azimuth_spacing / (2 * np.pi))),
                         dims='freq_' + azimuth_dim, name='k_az',
