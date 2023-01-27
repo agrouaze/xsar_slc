@@ -225,6 +225,18 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
     periodo = slc[periodo_slices].swap_dims({'__' + d: d for d in [range_dim, azimuth_dim]})
     periodo_sizes = {d: k for d, k in periodo.sizes.items() if 'periodo_' in d}
 
+    if 'IR_path' in kwargs: # Impulse Response has been provided
+        IR = xr.load_dataset(kwargs.pop('IR_path'))
+        IR['range_IR'] = IR['range_IR'].where(IR['range_IR']>IR['range_IR'].max()/100, np.nan) # discarding portion where range IR is very low
+        freq_line = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(IR.sizes['k_az'])), dims='k_az')
+        freq_sample = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(IR.sizes['k_srg'])), dims='k_srg')
+        IR  = IR.assign_coords({'freq_line':freq_line, 'freq_sample':freq_sample}).swap_dims({'k_srg':'freq_sample', 'k_az':'freq_line'})
+        freq_line = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(nperseg[azimuth_dim])), dims='freq_line')
+        freq_sample = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(nperseg[range_dim])), dims='freq_sample')
+        IR = IR.interp(freq_line=freq_line).interp(freq_sample=freq_sample)
+        IR = np.sqrt(IR['azimuth_IR'])*np.sqrt(IR['range_IR'])
+        kwargs.update({'IR':IR})
+
     out = np.empty(tuple(periodo_sizes.values()), dtype=object)
 
     for i in xndindex(periodo_sizes):
@@ -282,6 +294,7 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     """
     # import matplotlib.pyplot as plt
     import xrft
+    from xsarslc.processing.xspectra import get_centroid
 
     if nlooks < 1:
         raise ValueError('Number of look must be greater than 0')
@@ -296,19 +309,27 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     nperlook = int(np.rint(look_width * Np))  # number of point perlook in azimuth direction
     noverlap = int(np.rint(look_overlap * look_width * Np))  # number of overlap point
 
-    mydop = xrft.fft(slc, dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True,
-                     true_amplitude=True)
-
+    # mydop = xrft.fft(slc, dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True,
+                     # true_amplitude=True)
     # Finding an removing Doppler centroid
-    weight = xr.DataArray(np.hanning(min(20,Np//10+1)), dims=['window'])  # window for smoothing
-    weight /= weight.sum()
-    smooth_dop = np.abs(mydop).mean(dim=range_dim).rolling(**{freq_azi_dim: len(weight), 'center': True}).construct(
-        'window').dot(weight)
+    # weight = xr.DataArray(np.hanning(min(20,Np//10+1)), dims=['window'])  # window for smoothing
+    # weight /= weight.sum()
+    # smooth_dop = np.abs(mydop).mean(dim=range_dim).rolling(**{freq_azi_dim: len(weight), 'center': True}).construct(
+    #     'window').dot(weight)
     # i0 = int(np.abs(mydop[freq_azi_dim]).argmin())  # zero frequency indice
     # ishift = int(smooth_dop.argmax()) - i0  # shift of Doppler centroid
     # mydop = mydop.roll(**{freq_azi_dim: -ishift, 'roll_coords': False})
-    centroid = float((smooth_dop*smooth_dop['freq_line']).sum()/(smooth_dop).sum())
-    mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)    
+    # centroid = float((smooth_dop*smooth_dop['freq_line']).sum()/(smooth_dop).sum())
+
+    mydop = xrft.power_spectrum(slc, dim=azimuth_dim)
+    centroid = get_centroid(mydop, dim=freq_azi_dim, method='maxfit')
+    
+    if 'IR' not in kwargs: # No Impulse Response has been provided
+        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)
+    else: # Provided IR will be used to correct spectra
+        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim, range_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)   
+        mydop = (mydop/kwargs.get('IR')).fillna(0.)
+        mydop = xrft.ifft(mydop, dim='freq_'+range_dim, true_phase=True, true_amplitude=True)
 
     # Extracting the useful part of azimuthal Doppler spectrum
     # It removes points on each side to be sure that tiling will operate correctly
