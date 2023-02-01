@@ -7,7 +7,7 @@ import xarray as xr
 import logging
 from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
-
+from tqdm import tqdm
 
 def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, tile_overlap,
                            lowpass_width={'sample': 1000., 'line': 1000.},
@@ -49,7 +49,6 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     else:
         noverlap = {d: int(np.rint(tile_overlap[d] / spacing[d])) for d in
                     tile_width.keys()}  # np.rint is important for homogeneity of point numbers between bursts
-
     tiles_index = xtiling(burst, nperseg=nperseg_tile, noverlap=noverlap)
     dev = kwargs.get('dev', False)
     if dev:
@@ -102,8 +101,11 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     # --------------------------------------------------------------------------------------
 
     xs = list()  # np.empty(tuple(tiles_sizes.values()), dtype=object)
-
-    for i in xndindex(tiles_sizes):
+    combinaison_selection_tiles = [yy for yy in xndindex(tiles_sizes)]
+    pbar = tqdm(range(len(combinaison_selection_tiles)), desc='start')
+    for ii in pbar:
+        pbar.set_description('loop on %s/%s tiles' % (ii,len(combinaison_selection_tiles)))
+        i = combinaison_selection_tiles[ii]
         # ------ checking if we are over water only ------
         if 'landmask' in kwargs:
             tile_lons = [float(corner_lons[i][{'corner_line': j, 'corner_sample': k}]) for j, k in

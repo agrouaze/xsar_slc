@@ -61,7 +61,7 @@ def line2geolocline(lines, geolocation_annotation, azimuth_time_interval):
     az_ref2 = aziTime.isel(line=i_ref + 1, sample=0).data
     l_ref2 = geolines.isel(line=i_ref + 1).data
     delta = (az_ref2 - az_ref) / (
-                l_ref2 - l_ref)  # rate of azimuth time variation VS line number in the low resolution geolocation annotation
+            l_ref2 - l_ref)  # rate of azimuth time variation VS line number in the low resolution geolocation annotation
     geoloc_lines = l_ref + (az - az_ref) / delta
     if isinstance(lines, xr.DataArray):
         geoloc_lines = xr.DataArray(geoloc_lines, dims=lines.dims, coords=lines.coords).rename('geolocated_line')
@@ -117,10 +117,22 @@ def netcdf_compliant(dataset):
     for i in dataset.variables.keys():
         if dataset[i].dtype == complex:
             re = dataset[i].real
+            # re.encoding['_FillValue'] = 9.9692099683868690e+36
             im = dataset[i].imag
+            # im.encoding['_FillValue'] = 9.9692099683868690e+36
             var_to_add.append({str(i) + '_Re': re, str(i) + '_Im': im})
             var_to_rm.append(str(i))
-    return xr.merge([dataset.drop_vars(var_to_rm), *var_to_add])
+    for vv in dataset.variables.keys():
+        if dataset[vv].dtype == 'int64':  # to avoid ncview: netcdf_dim_value: unknown data type (10) for corner_line ...
+            dataset[vv] = dataset[vv].astype(np.int16)
+    # for vv in dataset.variables.keys():
+    #     if dataset[vv].dtype == 'float64':
+    #         dataset[vv] = dataset[vv].astype(np.float32)
+    #         dataset[vv].encoding['_FillValue'] = 9.9692099683868690e+36
+    # if 'pol' in dataset:
+    #     dataset['pol'] = dataset['pol'].astype('S1')
+    #     dataset['pol'].encoding['_FillValue'] = ''
+    return xr.merge([dataset.drop_vars(var_to_rm), *var_to_add], compat='override')
 
 
 def gaussian_kernel(width, spacing, truncate=3.):

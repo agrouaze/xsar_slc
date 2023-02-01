@@ -1,5 +1,5 @@
 # requirements for doc
-# no need to manul install it. (See doc/Makefile)
+# no need to manually install it. (See doc/Makefile)
 jinja2<=3.03
 pandoc
 sphinx
@@ -9,3 +9,4 @@ nbsphinx
 jupyter-sphinx
 sphinxcontrib-programoutput
 aiohttp
+holoviews

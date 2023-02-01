@@ -17,6 +17,7 @@ def generate_IW_AUX_file_ImpulseReponse(subswathes, subswath_number):
     Args:
         subswathes (dict): keys are SAFE file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
     """
+    import xsar
     product_IRs = list()
     for SAFE_path, burst_list in subswathes.items():
         slc_iw_path = 'SENTINEL1_DS:'+SAFE_path+':IW'+str(subswath_number)
