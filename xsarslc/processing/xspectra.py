@@ -263,7 +263,7 @@ def compute_azimuth_cutoff(spectrum, definition='drfab'):
 
 def symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az'):
     """
-    Symmetrize half-xspectrum around origin point. xspectrum is assumed to contain only positive wavenumbers in range.
+    Symmetrize half-xspectrum around origin point. For correct behaviour, xs has to be complex and assumed to contain only positive wavenumbers in range.
     
     Args:
         xs (xarray.DataArray or xarray.Dataset): complex xspectra to be symmetrized
@@ -282,3 +282,45 @@ def symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az'):
     mirror = mirror.assign_coords({dim_range: -mirror[dim_range], dim_azimuth: -mirror[dim_azimuth]})
     res = xr.concat([mirror, xs], dim=dim_range)[{dim_range: slice(None, -1), dim_azimuth: slice(None, -1)}]
     return res
+
+
+
+def get_centroid(spectrum, dim, width=0.5, method='firstmoment'):
+    """
+    Find Doppler centroid of provided spectrum value. If the provided spectrum has more than one dimension, they will be averaged.
+    Args:
+        spectrum (xarray.DataAArray) : Doppler azimuthal spectrum
+        dim (str): dimension name of azimuth
+        width (float, optional): percentage of Doppler bandwidth to be used for the fit in [0.,1.[
+        method (str, optional): Method to compute the centroid
+                                If 'maxfit': a gaussian fit around maximum spectrum value is used.
+                                If 'firstmoment': the first moment of the spectrum (centered around its maximum) is used
+    Return:
+        (float) : Doppler centroid value in same unit than dim
+    """
+    if spectrum.dtype==complex:
+        raise ValueError('Doppler centroid can not be estimated on complex data')
+    if len(spectrum.sizes)>1:
+        spectrum = spectrum.mean(list(set(spectrum.sizes.keys())-set([dim])))
+    if dim not in spectrum.coords:
+        raise ValueError('{} are not in {}'.format(dim, spectrum.coords))
+
+    imax = int(spectrum.argmax())
+    N = int(width*spectrum.sizes[dim])
+    fit_spectrum = spectrum[{dim:slice(max(0,imax-N//2),min(imax+N//2,spectrum.sizes[dim]))}] # selecting portion of interest (width)
+
+    if method=='firstmoment':
+        centroid = float((fit_spectrum*fit_spectrum[dim]).sum()/(fit_spectrum).sum())
+
+    elif method=='maxfit':
+        from scipy.optimize import curve_fit
+        fit_gauss = lambda x,a,c,l:a*np.exp(-(x-c)**2/(l**2))
+        a_estimate = float(spectrum[{dim:imax}])
+        c_estimate = float(spectrum[dim][{dim:imax}])
+        l_estimate = 0.25*float(spectrum[dim].max()-spectrum[dim].min())
+        p, r = curve_fit(fit_gauss, fit_spectrum[dim], fit_spectrum.data, p0=[a_estimate, c_estimate, l_estimate])
+        centroid = p[1]
+    else:
+        raise ValueError('Unknown method : {}'.format(method))
+    
+    return centroid
