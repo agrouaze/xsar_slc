@@ -66,7 +66,7 @@ def compute_WV_intraburst_xspectra(dt, tile_width=None, tile_overlap=None, polar
         polarization (str, optional): polarization to be selected for xspectra computation
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(), landmask can be added in kwargs
+        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(): landmask, IR_path are valid entries
         
     Return:
         (xarray): xspectra.
