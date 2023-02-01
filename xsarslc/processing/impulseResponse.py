@@ -27,23 +27,25 @@ def generate_IW_AUX_file_ImpulseReponse(subswathes, subswath_number):
     # product_IRs = xr.concat(product_IRs, dim='product')
     return product_IRs#.mean(dim='product')
 
-def generate_WV_AUX_file_ImpulseReponse(swathes):
+def generate_WV_AUX_file_ImpulseReponse(subswathes):
     """
-    Compute IR for each file listed in swathes. Average over all files and returm mean range and azimuth Impulse Response.
-    All listed swath - imagette should be on homogeneous zone
+    Compute IR for each file listed in subswathes. Average over all files, bursts, tiles and returm mean range and azimuth Impulse Response.
+    All listed subswath/burst should be on homogeneous zone
 
     Args:
-        swathes (dict): keys are SAFE file path (str), and values are list of imagette number. Ex {'/home/my_directory/my_file.SAFE', ['045','046']}
+        subswathes (dict): keys are SAEF file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
     """
-    import xsar
-    product_IRs = list()
-    for SAFE_path, WV_list in swathes.items():
+    IRs = list()
+    for SAFE_path, WV_list in subswathes.items():
         for iWV in WV_list:
             slc_wv_path = 'SENTINEL1_DS:'+SAFE_path+':WV_'+str(iWV)
             dt = xsar.open_datatree(slc_wv_path)
-            IRs = compute_WV_Impulse_Response(dt)
-            product_IRs.append(IRs)
-    return product_IRs
+            myIRs = compute_WV_Impulse_Response(dt)
+            myIRs = myIRs.reset_coords(['k_srg', 'k_az']).stack({'tile':{'tile_line', 'tile_sample'}}).drop('tile')
+            IRs.append(myIRs)
+    IRs = xr.concat(IRs, dim='tile').mean(dim='tile')
+    IRs = IRs.swap_dims({'freq_line':'k_az', 'freq_sample':'k_srg'})
+    return IRs
 
 def compute_subswath_Impulse_Response(dt, burst_list=None, tile_width={'sample': 20.e3, 'line': 20.e3},
                                          tile_overlap={'sample': 10.e3, 'line': 10.e3}, polarization='VV', **kwargs):
@@ -124,6 +126,7 @@ def compute_WV_Impulse_Response(dt, tile_width=None, tile_overlap=None, polariza
                            lowpass_width={'sample': 1000., 'line': 1000.},
                            periodo_width={'sample': 2000., 'line': 4000.},
                            periodo_overlap={'sample': 1000., 'line': 2000.})
+
     IRs = xr.merge([IR_range, IR_azimuth]).drop(['tile_line', 'tile_sample'])
     
     return IRs
@@ -260,21 +263,12 @@ def tile_burst_to_IR(burst, geolocation_annotation, orbit, tile_width, tile_over
         combine_attrs='drop_conflicts')
     
 
-    print(IR_range)
-    print(IR_azimuth)
-
-
     IR_range = IR_range.assign_coords({'longitude': middle_lons,
                            'latitude': middle_lats})  # This line also ensures adding line/sample coordinates too !! DO NOT REMOVE
 
 
     IR_azimuth = IR_azimuth.assign_coords({'longitude': middle_lons,
                            'latitude': middle_lats})  # This line also ensures adding line/sample coordinates too !! DO NOT REMOVE
-
-    print('-----------------')
-    print(IR_range)
-    print(IR_azimuth)
-
     
     IR_range.attrs.update(burst.attrs)
     IR_azimuth.attrs.update(burst.attrs)
@@ -336,7 +330,7 @@ def compute_rg_az_response(slc, mean_incidence, slant_spacing, azimuth_spacing,
                         dims='freq_' + range_dim, name='k_rg',
                         attrs={'long_name': 'wavenumber in range direction', 'units': 'rad/m'})
     k_srg = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(nperseg[range_dim], slant_spacing / (2 * np.pi))),
-                        dims='freq_' + range_dim, name='k_rg',
+                        dims='freq_' + range_dim, name='k_srg',
                         attrs={'long_name': 'wavenumber in slant range direction', 'units': 'rad/m'})
     k_az = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(nperseg[azimuth_dim], azimuth_spacing / (2 * np.pi))),
                         dims='freq_' + azimuth_dim, name='k_az',
@@ -366,12 +360,16 @@ def compute_IR(slc, azimuth_dim,**kwargs):
     """
     
     import xrft
+    from xsarslc.processing.xspectra import get_centroid
 
     range_dim = list(set(slc.dims) - set([azimuth_dim]))[0]  # name of range dimension
     freq_azi_dim = 'freq_' + azimuth_dim
-    freq_rg_dim = 'freq_' + range_dim
+    # freq_rg_dim = 'freq_' + range_dim
     
     azi_spec = xrft.power_spectrum(slc, dim=azimuth_dim).mean(dim=range_dim).rename('azimuth_IR')
+    centroid = get_centroid(azi_spec, freq_azi_dim, method='maxfit')
+    azi_spec = xrft.power_spectrum(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=azimuth_dim).mean(dim=range_dim).rename('azimuth_IR') # Doppler centroid has been removed
+
     rg_spec = xrft.power_spectrum(slc, dim=range_dim).mean(dim=azimuth_dim).rename('range_IR')
     
 
