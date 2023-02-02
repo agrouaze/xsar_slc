@@ -9,24 +9,26 @@ from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 
 
-def generate_IW_AUX_file_ImpulseReponse(subswathes, subswath_number):
+def generate_IWS_AUX_file_ImpulseReponse(subswathes, subswath_number):
     """
     Compute IR for each file listed in subswathes. Average over all files, bursts, tiles and returm mean range and azimuth Impulse Response.
     All listed subswath/burst should be on homogeneous zone
 
     Args:
-        subswathes (dict): keys are SAFE file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
+        subswathes (dict): keys are SAEF file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
+        subswath_number (int): subswath number to process. In [1,2,3]
     """
-    import xsar
-    product_IRs = list()
+    IRs = list()
     for SAFE_path, burst_list in subswathes.items():
         slc_iw_path = 'SENTINEL1_DS:'+SAFE_path+':IW'+str(subswath_number)
         dt = xsar.open_datatree(slc_iw_path)
-        IRs = compute_subswath_Impulse_Response(dt, burst_list = burst_list)
-        product_IRs.append(IRs)
-        # product_IRs.append(IRs.mean(dim=['burst','tile_line', 'tile_sample']))
-    # product_IRs = xr.concat(product_IRs, dim='product')
-    return product_IRs#.mean(dim='product')
+        myIRs = compute_IWS_subswath_Impulse_Response(dt, burst_list = burst_list)
+        IRs.append(myIRs)
+
+    IRs = xr.concat(IRs, dim='tile', combine_attrs='drop_conflicts')
+    IRs = IRs.swap_dims({'freq_line':'k_az', 'freq_sample':'k_srg'})
+    IRs.attrs.update({'subswath':'IW'+str(subswath_number)})
+    return IRs.mean(dim='tile', keep_attrs=True)
 
 def generate_WV_AUX_file_ImpulseReponse(subswathes):
     """
@@ -45,14 +47,14 @@ def generate_WV_AUX_file_ImpulseReponse(subswathes):
             myIRs = compute_WV_Impulse_Response(dt)
             myIRs = myIRs.reset_coords(['k_srg', 'k_az']).stack({'tile':{'tile_line', 'tile_sample'}}).drop('tile')
             IRs.append(myIRs)
-    IRs = xr.concat(IRs, dim='tile').mean(dim='tile')
+    IRs = xr.concat(IRs, dim='tile', combine_attrs='drop_conflicts').mean(dim='tile', keep_attrs=True)
     IRs = IRs.swap_dims({'freq_line':'k_az', 'freq_sample':'k_srg'})
     return IRs
 
-def compute_subswath_Impulse_Response(dt, burst_list=None, tile_width={'sample': 20.e3, 'line': 20.e3},
+def compute_IWS_subswath_Impulse_Response(dt, burst_list=None, tile_width={'sample': 20.e3, 'line': 20.e3},
                                          tile_overlap={'sample': 10.e3, 'line': 10.e3}, polarization='VV', **kwargs):
     """
-    Compute IW subswath range and azimuth Impulse Response. This function must be applied on homogeneous zone (amazonia, ...)
+    Compute IWS subswath range and azimuth Impulse Response. This function must be applied on homogeneous zone (amazonia, ...)
     Note: If requested tile is larger than the size of availabe data. tile will be set to maximum available size
     Args:
         dt (xarray.Datatree): datatree contraining subswath information
@@ -93,8 +95,8 @@ def compute_subswath_Impulse_Response(dt, burst_list=None, tile_width={'sample':
                            lowpass_width={'sample': 1000., 'line': 1000.},
                            periodo_width={'sample': 2000., 'line': 4000.},
                            periodo_overlap={'sample': 1000., 'line': 2000.})
-        IRs.append(xr.merge([IR_range, IR_azimuth]).drop(['tile_line', 'tile_sample']))
-    IRs = xr.concat(IRs, dim='burst')
+        IRs.append(xr.merge([IR_range, IR_azimuth]).stack({'tile':{'tile_line', 'tile_sample'}}).drop('tile'))
+    IRs = xr.concat(IRs, dim='tile', combine_attrs='drop_conflicts')
     return IRs
 
 def compute_WV_Impulse_Response(dt, tile_width=None, tile_overlap=None, polarization='VV', **kwargs):
@@ -246,8 +248,8 @@ def tile_burst_to_IR(burst, geolocation_annotation, orbit, tile_width, tile_over
                                                   nperseg=nperseg_periodo,
                                                   noverlap=noverlap_periodo, **kwargs)
         mean_incidence = xr.DataArray(mean_incidence, name='mean_incidence', attrs={'long_name':'incidence at middle tile', 'units':'degree'})
-        rg_ir = xr.merge([rg_ir, mean_incidence.to_dataset()])
-        azi_ir = xr.merge([azi_ir, mean_incidence.to_dataset()])
+        rg_ir = xr.merge([rg_ir.to_dataset(), mean_incidence.to_dataset()])
+        azi_ir = xr.merge([azi_ir.to_dataset(), mean_incidence.to_dataset()])
             
         IR_range.append(rg_ir.mean(dim=['periodo_sample','periodo_line'], keep_attrs=True))
         IR_azimuth.append(azi_ir.mean(dim=['periodo_sample','periodo_line'], keep_attrs=True))
@@ -282,8 +284,7 @@ def compute_rg_az_response(slc, mean_incidence, slant_spacing, azimuth_spacing,
                                  azimuth_dim='line', nperseg={'sample': 512, 'line': 512},
                                  noverlap={'sample': 256, 'line': 256}, **kwargs):
     """
-    Compute SAR cross spectrum using a 2D Welch method. Looks are centered on the mean Doppler frequency
-    If ds contains only one cycle, spectrum wavenumbers are added as coordinates in returned DataSet, otherwise, they are passed as variables (k_range, k_azimuth).
+    Compute range and azimuth Impulse Response by dividing tiles into periodograms
     
     Args:
         slc (xarray): digital numbers of Single Look Complex image.

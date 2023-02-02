@@ -332,6 +332,7 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
         mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim, range_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)   
         mydop = (mydop/kwargs.get('IR')).fillna(0.)
         mydop = xrft.ifft(mydop, dim='freq_'+range_dim, true_phase=True, true_amplitude=True)
+        mydop = mydop.drop(['k_az', 'k_srg'])
 
     # Extracting the useful part of azimuthal Doppler spectrum
     # It removes points on each side to be sure that tiling will operate correctly

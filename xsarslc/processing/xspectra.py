@@ -7,7 +7,7 @@ import xarray as xr
 import logging
 from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
-
+import warnings
 
 import cartopy
 # TODO : fix this hard coded path
@@ -26,7 +26,7 @@ def compute_subswath_xspectra(dt, **kwargs):
 
     #landmask = kwargs.pop('landmask', cartopy.feature.NaturalEarthFeature('physical', 'land', '10m'))
     kwargs['landmask'] = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
-    intra_xs = compute_subswath_intraburst_xspectra(dt, **kwargs)
+    intra_xs = compute_IW_subswath_intraburst_xspectra(dt, **kwargs)
     if 'spatial_ref' in intra_xs:
         intra_xs = intra_xs.drop('spatial_ref')
         #intra_xs.attrs.update({'start_date': str(intra_xs.start_date)})
@@ -35,7 +35,7 @@ def compute_subswath_xspectra(dt, **kwargs):
         #intra_xs.attrs.pop('pixel_line_m')
         #intra_xs.attrs.pop('pixel_sample_m')
 
-    inter_xs = compute_subswath_interburst_xspectra(dt, **kwargs)
+    inter_xs = compute_IW_subswath_interburst_xspectra(dt, **kwargs)
     if 'spatial_ref' in inter_xs:
         inter_xs = inter_xs.drop('spatial_ref')
         #inter_xs.attrs.update({'start_date': str(inter_xs.start_date)})
@@ -66,12 +66,15 @@ def compute_WV_intraburst_xspectra(dt, tile_width=None, tile_overlap=None, polar
         polarization (str, optional): polarization to be selected for xspectra computation
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(), landmask can be added in kwargs
+        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(): landmask, IR_path are valid entries
         
     Return:
         (xarray): xspectra.
     """
     from xsarslc.processing.intraburst import tile_burst_to_xspectra
+
+    if 'IR_path' not in kwargs:
+        warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
@@ -87,11 +90,12 @@ def compute_WV_intraburst_xspectra(dt, tile_width=None, tile_overlap=None, polar
         xspectra = xspectra.squeeze(['tile_line', 'tile_sample'])
     return xspectra
 
-def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 20.e3},
+def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 20.e3},
                                          tile_overlap={'sample': 10.e3, 'line': 10.e3}, polarization='VV', **kwargs):
     """
     Compute IW subswath intra-burst xspectra per tile
     Note: If requested tile is larger than the size of availabe data. tile will be set to maximum available size
+    
     Args:
         dt (xarray.Datatree): datatree contraining subswath information
         tile_width (dict): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
@@ -99,13 +103,16 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         polarization (str, optional): polarization to be selected for xspectra computation
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(), landmask can be added in kwargs
+        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(). landmask, IR_path are valid entries
         
     Return:
         (xarray): xspectra.
     """
     from xsarslc.processing.intraburst import tile_burst_to_xspectra
     from xsarslc.burst import crop_burst, deramp_burst
+
+    if 'IR_path' not in kwargs:
+        warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
@@ -118,6 +125,7 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
     if dev:
         logging.info('reduce number of burst -> 2')
         nb_burst = 2
+
     for b in range(nb_burst):
         burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
         deramped_burst = deramp_burst(burst, dt)
@@ -140,7 +148,7 @@ def compute_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
     return xspectra
 
 
-def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 20.e3},
+def compute_IW_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 20.e3},
                                          tile_overlap={'sample': 10.e3, 'line': 10.e3}, polarization='VV', **kwargs):
     """
     Compute IW subswath inter-burst xspectra. No deramping is applied since only magnitude is used.
@@ -156,7 +164,7 @@ def compute_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line'
         polarization (str, optional): polarization to be selected for xspectra computation
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra()
+        kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra(). landmask is valid entries
         
     Return:
         (xarray): xspectra.
