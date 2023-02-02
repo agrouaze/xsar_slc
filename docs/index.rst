@@ -78,7 +78,7 @@ Last documentation build: |today|
 .. toctree::
    :maxdepth: 1
    :hidden:
-   :caption: Getting Started
+   :caption: Algorithm description
 
    ATBD
 
