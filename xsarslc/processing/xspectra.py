@@ -10,7 +10,7 @@ from xsarslc.tools import xtiling, xndindex
 import warnings
 
 import cartopy
-
+# TODO : fix this hard coded path
 cartopy.config['pre_existing_data_dir'] = '/home1/datahome/agrouaze/.local/share/cartopy'
 
 

@@ -9,20 +9,22 @@ from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 
 
-def generate_IWS_AUX_file_ImpulseReponse(subswathes, subswath_number):
+def generate_IWS_AUX_file_ImpulseReponse(subswathes, subswath_number,polarization):
     """
     Compute IR for each file listed in subswathes. Average over all files, bursts, tiles and returm mean range and azimuth Impulse Response.
     All listed subswath/burst should be on homogeneous zone
 
     Args:
-        subswathes (dict): keys are SAEF file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
+        subswathes (dict): keys are SAFE file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
         subswath_number (int): subswath number to process. In [1,2,3]
+        polarization (str) : VV or VH or HV or HH
     """
+    import xsar
     IRs = list()
     for SAFE_path, burst_list in subswathes.items():
         slc_iw_path = 'SENTINEL1_DS:'+SAFE_path+':IW'+str(subswath_number)
         dt = xsar.open_datatree(slc_iw_path)
-        myIRs = compute_IWS_subswath_Impulse_Response(dt, burst_list = burst_list)
+        myIRs = compute_IWS_subswath_Impulse_Response(dt, burst_list = burst_list , polarization=polarization)
         IRs.append(myIRs)
 
     IRs = xr.concat(IRs, dim='tile', combine_attrs='drop_conflicts')
@@ -36,8 +38,9 @@ def generate_WV_AUX_file_ImpulseReponse(subswathes):
     All listed subswath/burst should be on homogeneous zone
 
     Args:
-        subswathes (dict): keys are SAEF file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
+        subswathes (dict): keys are SAFE file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
     """
+    import xsar
     IRs = list()
     for SAFE_path, WV_list in subswathes.items():
         for iWV in WV_list:
@@ -53,17 +56,17 @@ def generate_WV_AUX_file_ImpulseReponse(subswathes):
 def compute_IWS_subswath_Impulse_Response(dt, burst_list=None, tile_width={'sample': 20.e3, 'line': 20.e3},
                                          tile_overlap={'sample': 10.e3, 'line': 10.e3}, polarization='VV', **kwargs):
     """
-    Compute IWS subswath range and azimuth Impulse Response. This function must be applied on homogeneous zone (amazonia, ...)
-    Note: If requested tile is larger than the size of availabe data. tile will be set to maximum available size
+    Compute IWS sub-swath range and azimuth Impulse Response. This function must be applied on homogeneous zone (Amazonia, ...)
+    Note: If requested tile is larger than the size of available data. tile will be set to maximum available size
     Args:
-        dt (xarray.Datatree): datatree contraining subswath information
+        dt (xarray.Datatree): datatree containing sub-swath information
         burst_list (list of int, optional): list of burst number to process. Default is all
-        tile_width (dict): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
-        tile_overlap (dict): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        tile_width (dict): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
+        tile_overlap (dict): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
         polarization (str, optional): polarization to be selected for IR computation
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_burst_to_IR(), landmask can be added in kwargs. Can contain polarisation
+        kwargs (dict): keyword arguments passed to tile_burst_to_IR(), land-mask can be added in kwargs. Can contain polarization
         
     Return:
         (xarray): xspectra.
@@ -76,9 +79,13 @@ def compute_IWS_subswath_Impulse_Response(dt, burst_list=None, tile_width={'samp
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
     IRs = list()
+    dev = kwargs.get('dev', False)
     
     if not burst_list:
         burst_list = np.arange(dt['bursts'].sizes['burst'])
+    if dev:
+        logging.info('reduce number of burst -> 2')
+        burst_list = [0,1]
     
     for b in burst_list:      
         burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
