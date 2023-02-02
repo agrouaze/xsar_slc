@@ -1,8 +1,10 @@
 .. _atbd:
 
-*******************
-ATBD L1B Sentinel-1
-*******************
+***************************************
+Algorithm L1B cross spectrum Sentinel-1
+***************************************
+
+This page stands as the ATBD (Algorithm Technical Baseline Document) for Sentinel-1 L1B IFREMER product.
 
 algorithm overview
 ##################
@@ -22,6 +24,16 @@ processing steps to start from S1 SLC product to L1B
   - normalization of looks energy
 
 
+computing modulation
+####################
+
+The modulation is computed from Digital Numbers (DN) (i.e. complexe Level-1 SLC annotated values).
+The method :meth:`xsarslc.processing.xspectra.compute_modulation` performs this operation.
+
+The equation is :
+:math:`modulation = \frac{DN}{\sqrt{intensity_{lowpass}}}`
+
+where :math:`intensity_{lowpass} = \frac{GaussianFilter(abs(DN^2))}{GaussianFilter(DN)}`
 
 
 bright target
