@@ -88,10 +88,10 @@ Last documentation build: |today|
    :hidden:
    :caption: Examples
 
-    - examples/xspec_IW_intra_and_inter_burst
-    - examples/xspec_WV_example
-    - examples/example_IW_compute_and_correct_from_impulse_response
-    - examples/example_WV_compute_and_correct_from_impulse_response
+   examples/xspec_IW_intra_and_inter_burst
+   examples/xspec_WV_example
+   examples/example_IW_compute_and_correct_from_impulse_response
+   examples/example_WV_compute_and_correct_from_impulse_response
 
 .. toctree::
    :maxdepth: 1

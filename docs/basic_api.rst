@@ -23,3 +23,6 @@ processing
 
 .. automodule:: xsarslc.burst
     :members: burst_valid_indexes, crop_burst, deramp_burst
+
+..automodule:: xsarslc.processing.impulseResponse
+    :members: compute_IWS_subswath_Impulse_Response, compute_WV_Impulse_Response
