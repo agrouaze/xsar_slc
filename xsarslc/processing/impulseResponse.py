@@ -34,8 +34,9 @@ def generate_WV_AUX_file_ImpulseReponse(subswathes):
     All listed subswath/burst should be on homogeneous zone
 
     Args:
-        subswathes (dict): keys are SAEF file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
+        subswathes (dict): keys are SAFE file path (str), and values are list of burst number. Ex {'/home/my_directory/my_file.SAFE', [0,2,6]}
     """
+    import xsar
     IRs = list()
     for SAFE_path, WV_list in subswathes.items():
         for iWV in WV_list:
