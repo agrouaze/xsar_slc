@@ -6,6 +6,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-20.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+      # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+      permissions:
+        pages: write
+        id-token: write
     steps:
     - name: Checkout
       uses: actions/checkout@main
@@ -17,7 +24,13 @@ jobs:
       with:
         requirements_path: ./docs/requirements_doc.txt
     - name: Push changes
-      uses: ad-m/github-push-action@main
+      uses: umr-lops/xsar_slc@main
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         branch: gh-pages
+    - id: deployment
+      uses: umr-lops/xsar_slc@main
+      with:
+          documentation_path: .
+          requirements_path: ./requirements_doc.txt
+          cache: true
