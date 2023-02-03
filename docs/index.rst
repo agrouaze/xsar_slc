@@ -1,13 +1,25 @@
-######################################################################
-xsarslc: functions to compute cross spectra from TOPS SLC SAR products
-######################################################################
+############################################################################
+xsarslc: functions to compute cross spectra from Sentinel-1 SLC SAR products
+############################################################################
 
 **xsarslc** is a library to compute cross spectrum from level 1 SAR SLC products. Objets manipulated are all `xarray`_.
 
-The input `datatree`_ object can come from any reader library but the original design has been done using **`xsar`_**
+Acquisition modes handled by **xsarslc** are IW and WV.
+
+The input `datatree`_ object can come from any reader library but the original design has been done using `xsar`_
 
 
 .. jupyter-execute:: examples/intro.py
+
+
+
+.. image:: oceanspectrumSAR.png
+   :width: 500px
+   :height: 400px
+   :scale: 110 %
+   :alt: real part SAR cross spectrum
+   :align: right
+
 
 
 Documentation
@@ -101,6 +113,7 @@ Last documentation build: |today|
    basic_api
 
 .. _on github: https://github.com/umr-lops/xsar_slc
+.. _xsar: https://github.com/umr-lops/xsar
 .. _xarray: http://xarray.pydata.org
 .. _datatree: https://github.com/xarray-contrib/datatree
 .. _xarray.Dataset: http://xarray.pydata.org/en/stable/generated/xarray.Dataset.html
