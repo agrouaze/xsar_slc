@@ -206,6 +206,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     xs.attrs.update(burst.attrs)
     xs.attrs.update({'tile_nperseg_' + d: k for d, k in nperseg_tile.items()})
     xs.attrs.update({'tile_noverlap_' + d: k for d, k in noverlap.items()})
+    xs.attrs.update({'tile_width_' + d: k for d, k in tile_width.items()})
     return xs
 
 

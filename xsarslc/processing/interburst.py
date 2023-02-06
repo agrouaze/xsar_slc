@@ -284,7 +284,7 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
 
     out = [list(a) for a in list(out)]  # must be generalized for larger number of dimensions
     out = xr.combine_nested(out, concat_dim=periodo_sizes.keys(), combine_attrs='drop_conflicts').rename(
-        'interburst_xspectra')
+        'xspectra')
 
     out = out.assign_coords(periodo0.drop(['line', 'sample']).coords)
 
