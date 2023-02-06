@@ -177,7 +177,7 @@ def xtiling(ds, nperseg, noverlap=0, centering=False, side='left', prefix='tile_
     If ds is a dict of shape, returned coordinates are assumed starting from zero.
     
     Note2 : If nperseg is a dict and contains one value set as None (or zero), a tile dimension is created along the corresponding dimension with nperseg set as
-    the corresponding shape of ds. This is a diferent behaviour than not providing the dimension in nperseg
+    the corresponding shape of ds. This is a different behaviour than not providing the dimension in nperseg
     
    
     Args:
@@ -230,12 +230,16 @@ def xtiling(ds, nperseg, noverlap=0, centering=False, side='left', prefix='tile_
             noverlap[d] = 0
         if sizes[d] < nperseg[d]:
             warnings.warn(
-                "Dimension '{}' ({}) is smaller than required nperseg :{}. nperseg is ajusted accordingly and noverlap forced to zero".format(
+                "Dimension '{}' ({}) is smaller than required nperseg :{}. nperseg is adjusted accordingly and noverlap forced to zero".format(
                     d, sizes[d], nperseg[d]))
             nperseg[d] = sizes[d]
             noverlap[d] = 0
 
     steps = {d: nperseg[d] - noverlap[d] for d in dims}  # step between each tile
+    
+    if np.any([steps[d]<1 for d in dims]):
+        raise ValueError("noverlap can not be equal or larger than nperseg")
+
     indices = {d: np.arange(0, sizes[d] - nperseg[d] + 1, steps[d]) for d in dims}  # index of first point of each tile
 
     # For centering option:

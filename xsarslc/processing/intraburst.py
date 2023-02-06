@@ -7,12 +7,13 @@ import xarray as xr
 import logging
 from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
+import warnings
 from tqdm import tqdm
 
 def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, tile_overlap,
                            lowpass_width={'sample': 1000., 'line': 1000.},
-                           periodo_width={'sample': 2000., 'line': 4000.},
-                           periodo_overlap={'sample': 1000., 'line': 2000.}, **kwargs):
+                           periodo_width={'sample': 4000., 'line': 4000.},
+                           periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs):
     """
     Divide burst in tiles and compute intra-burst cross-spectra using compute_intraburst_xspectrum() function.
 
@@ -33,6 +34,8 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     from xsarslc.tools import get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff
 
+
+
     burst.load()
     mean_ground_spacing = float(burst['sampleSpacing'] / np.sin(np.radians(burst.attrs['mean_incidence'])))
     azimuth_spacing = float(burst['lineSpacing'])
@@ -49,6 +52,16 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     else:
         noverlap = {d: int(np.rint(tile_overlap[d] / spacing[d])) for d in
                     tile_width.keys()}  # np.rint is important for homogeneity of point numbers between bursts
+
+    if np.any([tile_width[d]<periodo_width[d] for d in tile_width.keys()]):
+        warnings.warn("One or all periodogram widths are larger than tile widths. Exceeding periodogram widths are reset to match tile width.")
+
+    for d in tile_width.keys():
+        periodo_width[d] = min(periodo_width[d], tile_width[d])
+
+    if np.any([periodo_overlap[d]>0.5*periodo_width[d] for d in periodo_width.keys()]):
+        warnings.warn("Periodogram overlap should not exceed half of the periodogram width.")
+
     tiles_index = xtiling(burst, nperseg=nperseg_tile, noverlap=noverlap)
     dev = kwargs.get('dev', False)
     if dev:
@@ -222,7 +235,6 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
     """
 
     range_dim = list(set(slc.dims) - set([azimuth_dim]))[0]  # name of range dimension
-
     periodo_slices = xtiling(slc, nperseg=nperseg, noverlap=noverlap, prefix='periodo_')
     periodo = slc[periodo_slices].swap_dims({'__' + d: d for d in [range_dim, azimuth_dim]})
     periodo_sizes = {d: k for d, k in periodo.sizes.items() if 'periodo_' in d}
@@ -239,19 +251,14 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
         IR = np.sqrt(IR['azimuth_IR'])*np.sqrt(IR['range_IR'])
         kwargs.update({'IR':IR})
 
-    out = np.empty(tuple(periodo_sizes.values()), dtype=object)
+    out = list()
 
     for i in xndindex(periodo_sizes):
         image = periodo[i]
-        xspecs = compute_looks(image, azimuth_dim=azimuth_dim, synthetic_duration=synthetic_duration,
-                               **kwargs)  # .assign_coords(i)
-        out[tuple(i.values())] = xspecs
+        xspecs = compute_looks(image, azimuth_dim=azimuth_dim, synthetic_duration=synthetic_duration,**kwargs) 
+        out.append(xspecs)
 
-    out = [list(a) for a in list(out)]  # must be generalized for larger number of dimensions
-    out = xr.combine_nested(out, concat_dim=periodo_sizes.keys(), combine_attrs='drop_conflicts')
-    # out = out.assign_coords(periodo_slices.coords)
-    out = out.assign_coords(periodo.coords)
-
+    out = xr.combine_by_coords([x.expand_dims(['periodo_sample', 'periodo_line']) for x in out], combine_attrs='drop_conflicts')
     out.attrs.update({'mean_incidence': mean_incidence})
 
     # dealing with wavenumbers
@@ -264,9 +271,10 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
         np.fft.fftfreq(out.sizes['freq_' + azimuth_dim], azimuth_spacing / (out.attrs.pop('look_width') * 2 * np.pi))),
                         dims='freq_' + azimuth_dim, name='k_az',
                         attrs={'long_name': 'wavenumber in azimuth direction', 'units': 'rad/m'})
-    # out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az}).swap_dims({'freq_'+range_dim:'k_rg', 'freq_'+azimuth_dim:'k_az'})
-    # out = xr.merge([out, k_rg.to_dataset(), k_az.to_dataset()],
-    #                combine_attrs='drop_conflicts')  # Adding .to_dataset() ensures promote_attrs=False
+    
+    with xr.set_options(keep_attrs=True): # centroid has been evaluated on freq_line. It has to be converted on azimuth dimension
+        out['centroid'] = out['centroid']*(2.*np.pi/azimuth_spacing)
+        out['centroid'].attrs.update({'units':'rad/m'})
     out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az})
     out.attrs.update({'periodogram_nperseg_' + range_dim: nperseg[range_dim],
                       'periodogram_nperseg_' + azimuth_dim: nperseg[azimuth_dim],
@@ -328,7 +336,7 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     
     if 'IR' not in kwargs: # No Impulse Response has been provided
         mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)
-    else: # Provided IR will be used to correct spectra
+    else: # Provided IR is used to normalize slc spectra
         mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim, range_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)   
         mydop = (mydop/kwargs.get('IR')).fillna(0.)
         mydop = xrft.ifft(mydop, dim='freq_'+range_dim, true_phase=True, true_amplitude=True)
@@ -366,7 +374,7 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
 
     looks_spec = xr.concat(looks_spec, dim='look')
 
-    xspecs = {str(i) + 'tau': [] for i in range(nlooks)}  # using .fromkeys() do not work because of common empylist
+    xspecs = {str(i) + 'tau': [] for i in range(nlooks)}  # using .fromkeys() do not work because of common emptylist
     for l1 in range(nlooks):
         for l2 in range(l1, nlooks):
             df = float(looks_spec[{'look': l2}][freq_azi_dim].spacing * looks_spec[{'look': l2}][freq_rg_dim].spacing)
@@ -385,5 +393,6 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
         merged_xspecs.append(concat_spec.to_dataset())  # adding to_dataset() ensures promote_attrs=False per default
 
     merged_xspecs = xr.merge(merged_xspecs, combine_attrs='drop_conflicts')
+    merged_xspecs = merged_xspecs.merge(xr.DataArray(centroid, name='centroid', attrs={'long_name':'Doppler centroid', 'units':''}).to_dataset())
     merged_xspecs.attrs.update({'look_width': look_width, 'tau': tau})
     return merged_xspecs
