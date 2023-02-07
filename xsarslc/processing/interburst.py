@@ -67,12 +67,28 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
 
     azimuth_spacing = float(burst['lineSpacing'])
     spacing = {'sample': mean_ground_spacing, 'line': azimuth_spacing}
-    nperseg = {d: int(np.rint(tile_width[d] / spacing[d])) for d in tile_width.keys()}
+
+    if tile_width:
+        nperseg_tile = {d: int(np.rint(tile_width[d] / spacing[d])) for d in tile_width.keys()}
+    else:
+        nperseg_tile = burst.sizes
+        tile_width = {d:nperseg_tile[d]*spacing[d] for d in nperseg_tile.keys()}
 
     if tile_overlap in (0., None):
-        noverlap = {d: 0 for k in nperseg.keys()}
+        noverlap = {d: 0 for d in nperseg_tile.keys()}
     else:
-        noverlap = {d: int(np.rint(tile_overlap[d] / spacing[d])) for d in tile_width.keys()}
+        noverlap = {d: int(np.rint(tile_overlap[d] / spacing[d])) for d in
+                    tile_width.keys()}  # np.rint is important for homogeneity of point numbers between bursts
+
+    if np.any([tile_width[d]<periodo_width[d] for d in tile_width.keys()]):
+        warnings.warn("One or all periodogram widths are larger than tile widths. Exceeding periodogram widths are reset to match tile width.")
+
+    for d in tile_width.keys():
+        periodo_width[d] = min(periodo_width[d], tile_width[d])
+
+    if np.any([periodo_overlap[d]>0.5*periodo_width[d] for d in periodo_width.keys()]):
+        warnings.warn("Periodogram overlap should not exceed half of the periodogram width.")
+
     tiles_index = xtiling(burst, nperseg=nperseg, noverlap=noverlap)
     tiled_burst0 = burst0[tiles_index]  # .drop(['sample','line']).swap_dims({'__'+d:d for d in tile_width.keys()})
     tiled_burst1 = burst1[tiles_index]  # .drop(['sample','line']).swap_dims({'__'+d:d for d in tile_width.keys()})
@@ -268,7 +284,7 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
 
     out = [list(a) for a in list(out)]  # must be generalized for larger number of dimensions
     out = xr.combine_nested(out, concat_dim=periodo_sizes.keys(), combine_attrs='drop_conflicts').rename(
-        'interburst_xspectra')
+        'xspectra')
 
     out = out.assign_coords(periodo0.drop(['line', 'sample']).coords)
 
