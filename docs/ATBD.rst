@@ -36,6 +36,14 @@ The equation is :
 where :math:`intensity_{lowpass} = \frac{GaussianFilter(abs(DN^2))}{GaussianFilter(DN)}`
 
 
+tiling of the sub-swathes
+#########################
+
+The tiling which is done within the bursts and inter-burst areas is given in meters by the user.
+The philosophy behind the posting consists in setting the maximum of tiles within the valid pixels footprint.
+Tiles can overlap or not. A maximum of 50% overllaping is present.
+The periodograms size cannot be larger than tiles.
+
 bright target
 #############
 
