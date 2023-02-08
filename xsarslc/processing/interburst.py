@@ -89,7 +89,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
     if np.any([periodo_overlap[d]>0.5*periodo_width[d] for d in periodo_width.keys()]):
         warnings.warn("Periodogram overlap should not exceed half of the periodogram width.")
 
-    tiles_index = xtiling(burst, nperseg=nperseg, noverlap=noverlap)
+    tiles_index = xtiling(burst, nperseg=nperseg_tile, noverlap=noverlap)
     tiled_burst0 = burst0[tiles_index]  # .drop(['sample','line']).swap_dims({'__'+d:d for d in tile_width.keys()})
     tiled_burst1 = burst1[tiles_index]  # .drop(['sample','line']).swap_dims({'__'+d:d for d in tile_width.keys()})
     tiles_sizes = {d: k for d, k in tiled_burst0.sizes.items() if 'tile_' in d}

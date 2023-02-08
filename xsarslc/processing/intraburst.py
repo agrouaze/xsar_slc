@@ -164,7 +164,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
                                    keep_attrs=True)  # averaging all the periodograms in each tile
             
             # ------------- tau ----------------
-            tau = float(xspecs.attrs['tau'])
+            tau = float(xspecs_m.attrs.pop('tau'))
             tau = xr.DataArray(float(tau), name='tau', attrs={'long_name': 'delay between two successive looks', 'units': 's'})
             # ------------- cut-off ------------
             cutoff_tau = [str(i) + 'tau' for i in [1, 2, 3, 0] if str(i) + 'tau' in xspecs_m.dims][0]  # tau used to compute azimuthal cutoff
