@@ -257,7 +257,7 @@ def compute_azimuth_cutoff(spectrum, definition='drfab'):
     if not np.any(spectrum['k_rg'] < 0.).item():  # only half spectrum with positive wavenumber has been passed
         spectrum = symmetrize_xspectrum(spectrum)
 
-    coV = xrft.ifft(spectrum, dim=('k_rg', 'k_az'), shift=True, prefix='k_')
+    coV = xrft.ifft(spectrum.real, dim=('k_rg', 'k_az'), shift=True, prefix='k_')
     coV = coV.assign_coords({'rg': 2 * np.pi * coV.rg, 'az': 2 * np.pi * coV.az})
     if definition == 'ipf':
         coVRm = coV.real.mean(dim='rg')
@@ -270,9 +270,13 @@ def compute_azimuth_cutoff(spectrum, definition='drfab'):
 
     def fit_gauss(x, a, l):
         return a * np.exp(-(np.pi * x / l) ** 2)
-
-    p, r = curve_fit(fit_gauss, coVfit.az, coVfit.data, p0=[1., 227.])
-    return p[1]
+    try:
+        p, r = curve_fit(fit_gauss, coVfit.az, coVfit.data, p0=[1., 227.])
+        cutoff = p[1]
+    except:
+        cutoff = np.nan
+    
+    return cutoff
 
 
 def symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az'):
