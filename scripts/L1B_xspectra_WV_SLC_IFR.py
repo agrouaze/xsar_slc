@@ -19,7 +19,7 @@ import os
 import time
 import xsarslc
 import pdb
-
+from get_RI_file import get_IR_file
 PRODUCT_VERSION = '0.7'  # 9jan23 : bug fix for burst empty + refactoring Nouguier
 
 def get_memory_usage():
@@ -51,9 +51,14 @@ def generate_WV_L1Bxspec_product(slc_wv_path,output_filename, polarization=None,
     dt = xsarobj.datatree
     dt.load() #took ?min to load and ? Go RAM
     logging.info('datatree loaded %s',get_memory_usage())
+    unit = safe[0:3]
+    subswath = str_gdal.split(':')[2]
+    subswath = dt['image'].ds['swath_subswath'].values
+    IR_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
+    IR_path = get_IR_file(unit, subswath, polarization.upper(), auxdir=IR_dir)
     xs0 = proc.compute_WV_intraburst_xspectra(dt=dt,
                                          polarization='VV', periodo_width={"line": 2000, "sample": 2000},
-                                         periodo_overlap={"line": 1000, "sample": 1000})
+                                         periodo_overlap={"line": 1000, "sample": 1000},IR_path=IR_path)
     xs = xs0.swap_dims({'freq_line': 'k_az', 'freq_sample': 'k_rg'})
     xs = xspectra.symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az')
     xs = netcdf_compliant(xs) # to split complex128 variables into real and imag part

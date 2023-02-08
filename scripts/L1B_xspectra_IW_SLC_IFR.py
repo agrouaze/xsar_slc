@@ -18,6 +18,7 @@ import os
 import time
 #import xsarslc as xsarslc
 import xsarslc
+from get_RI_file import get_IR_file
 import pdb
 # from yaml import load
 # from yaml import CLoader as Loader
@@ -28,6 +29,8 @@ PRODUCT_VERSION = '0.4'  # 12dec22 : only one tiff (one subswath) for one .nc ou
 PRODUCT_VERSION = '0.5'  # 14dec22 : integration of functions to avoid loading geoloc fields at high resolution
 PRODUCT_VERSION = '0.6'  # 20dec22 : xsar_slc repo with Nouguier (added landmask, no HR except DN, tau computation, elevation,..)
 PRODUCT_VERSION = '0.7'  # 9jan23 : bug fix for burst empty + refactoring Nouguier
+PRODUCT_VERSION = '0.8'  # 3fev23 : test with tile size = 2 km instead of 20 km et sans overlap de tuile
+PRODUCT_VERSION = '0.9'  # 6fev23 : test with tile size = 20 km and without tile overlap
 # stream = open(os.path.join(os.path.dirname(__file__), 'configuration_L1B_xspectra_IW_SLC_IFR_v1.yml'), 'r')
 # conf = load(stream, Loader=Loader)  # TODO : add argument to compute_subswath_xspectra(conf=conf)
 def get_memory_usage():
@@ -63,9 +66,20 @@ def generate_IW_L1Bxspec_product(slc_iw_path,output_filename, polarization=None,
     dt = xsarobj.datatree
     dt.load() #took 4min to load and 35Go RAM
     logging.info('datatree loaded %s',get_memory_usage())
+    #TODO add the IR_path in the call below
+    #tile_width = {'sample': 20.e2, 'line': 20.e2} # original : 20.e3
+    tile_width = {'sample': 20.e3, 'line': 20.e3}  # original : 20.e3
+    #tile_overlap = {'sample': 10.e2, 'line': 10.e2}
+    tile_overlap = {'sample': 0, 'line': 0}
+    logging.info('tile_width : %s',tile_width)
+    unit = safe[0:3]
+    subswath = str_gdal.split(':')[2]
+    IR_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
+    IR_path = get_IR_file(unit, subswath, polarization.upper(), auxdir=IR_dir)
     one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,pol=polarization.upper(),
                                                                dev=dev,compute_intra_xspec=True,
-                                                               compute_inter_xspec=True)
+                                                               compute_inter_xspec=True,tile_width=tile_width,
+                                                               tile_overlap=tile_overlap,IR_path=IR_path)
     if one_subswath_xspectrum_dt:
         logging.info('xspec intra and inter ready for %s', slc_iw_path)
         logging.debug('one_subswath_xspectrum = %s', one_subswath_xspectrum_dt)
