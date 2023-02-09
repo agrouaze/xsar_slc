@@ -204,9 +204,12 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     xs = xs.assign_coords({'longitude': middle_lons,
                            'latitude': middle_lats})  # This line also ensures adding line/sample coordinates too !! DO NOT REMOVE
     xs.attrs.update(burst.attrs)
-    xs.attrs.update({'tile_nperseg_' + d: k for d, k in nperseg_tile.items()})
-    xs.attrs.update({'tile_noverlap_' + d: k for d, k in noverlap.items()})
+    # xs.attrs.update({'tile_nperseg_' + d: k for d, k in nperseg_tile.items()})
+    # xs.attrs.update({'tile_noverlap_' + d: k for d, k in noverlap.items()})
     xs.attrs.update({'tile_width_' + d: k for d, k in tile_width.items()})
+    xs.attrs.update({'tile_overlap_' + d: k for d, k in tile_overlap.items()})
+    xs.attrs.update({'periodo_width_' + d: k for d, k in periodo_width.items()})
+    xs.attrs.update({'periodo_overlap_' + d: k for d, k in periodo_overlap.items()})
     return xs
 
 
