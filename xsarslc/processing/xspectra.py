@@ -77,7 +77,7 @@ def compute_WV_intraburst_xspectra(dt, tile_width=None, tile_overlap=None, polar
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
-               'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
+               # 'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
 
@@ -115,7 +115,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
-               'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
+               # 'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
     xspectra = list()
