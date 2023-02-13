@@ -12,8 +12,8 @@ from tqdm import tqdm
 
 def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, tile_overlap,
                            lowpass_width={'sample': 1000., 'line': 1000.},
-                           periodo_width={'sample': 4000., 'line': 4000.},
-                           periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs):
+                           periodo_width={'sample': 4000., 'line': 4000.}, #4000 en 20km # 1800 en 2km tiles
+                           periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs): # half width
     """
     Divide burst in tiles and compute intra-burst cross-spectra using compute_intraburst_xspectrum() function.
 
@@ -171,8 +171,8 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
             xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
                 {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
             cutoff = compute_azimuth_cutoff(xs_cut)
-            cutoff = xr.DataArray(float(cutoff), name='cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
-            mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
+            cutoff = xr.DataArray(float(cutoff), name='azimuth_cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
+            mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence angle at centre of the tile', 'units':'degree'})
             xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset()]))
 
     if not xs:  # All tiles are over land -> no xspectra available

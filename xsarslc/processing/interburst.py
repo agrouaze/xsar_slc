@@ -11,7 +11,7 @@ from xsarslc.tools import xtiling, xndindex
 
 def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile_width, tile_overlap,
                                     lowpass_width={'sample': 1000., 'line': 1000.},
-                                    periodo_width={'sample': 2000., 'line': 1200.},
+                                    periodo_width={'sample': 2000., 'line': 1200.}, #2000 1200 en 20km# 1800 1200 en 2km
                                     periodo_overlap={'sample': 1000., 'line': 600.}, **kwargs):
     """
     Divide bursts overlaps in tiles and compute inter-burst cross-spectra using compute_interburst_xspectrum() function.
@@ -232,7 +232,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
     xs = xs.assign_coords({'longitude': middle_lons,
                            'latitude': middle_lats})  # This line also ensures adding line/sample coordinates too !! DO NOT REMOVE
     xs.attrs.update(burst.attrs)
-    xs.attrs.update({'tile_nperseg_' + d: k for d, k in nperseg.items()})
+    xs.attrs.update({'tile_nperseg_' + d: k for d, k in nperseg_tile.items()})
     xs.attrs.update({'tile_noverlap_' + d: k for d, k in noverlap.items()})
     return xs
 
