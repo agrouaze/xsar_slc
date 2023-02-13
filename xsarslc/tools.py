@@ -170,7 +170,7 @@ def xndindex(sizes):
 
 def xtiling(ds, nperseg, noverlap=0, centering=False, side='left', prefix='tile_'):
     """
-    Define tiles indexes of an xarray of abritrary shape. Name of returned coordinates are prefix+nperseg keys()
+    Define tiles indexes of an xarray of abritrary shape. Name of returned coordinates are prefix+keys of nperseg
     
     Note1: Coordinates of returned arrays depends on type of ds.
     If ds is an xarray instance, returned coordinates are in ds coordinate referential.
@@ -272,7 +272,7 @@ def xtiling(ds, nperseg, noverlap=0, centering=False, side='left', prefix='tile_
 
 def get_corner_tile(tiles):
     """
-    Extract corner indexes of tiles
+    Extract corner indexes of tiles.. Returns an index, not the coordinate !
     Args:
         tiles (dict of xarray) : xtiling() output or {key:value} with values being DataArray of slices
     Return:
@@ -291,14 +291,14 @@ def get_corner_tile(tiles):
 
 def get_middle_tile(tiles):
     """
-    Extract middle indexes of tiles
+    Extract middle indexes of tiles. Returns an index, not the coordinate !
     Args:
         tiles (dict of xarray) : xtiling() output or {key:value} with values being DataArray of slices
     Return:
         (dict of xarray): same keys as tiles, values ares middle indexes
     """
     # function below if used if tiles contains list of slices instead of index values
-    slice_middle_indexes = lambda slices:np.array([(s.stop-s.start)//2 for s in slices])
+    slice_middle_indexes = lambda slices:np.array([(s.stop+s.start)//2 for s in slices])
     
     middle = dict()
     for d, v in tiles.items():
@@ -333,7 +333,7 @@ def get_tiles(ds, tiles_index):
         uniform_tile_sizes.update({b:j for b,j in k.sizes.items() if 'tile_' in b})
     
     if non_uniform_tiles_index: # taking all the tiles over all non-uniform dimensions
-        uds = {'tile_'+d:[uds[{d:v[s].item()}].assign_coords({td:v[td][{td:tv}].item() for td,tv in s.items()}).swap_dims({d:'__'+d}) for s in xndindex(v.sizes)] for d,v in non_uniform_tiles_index.items()}    
+        uds = {'tile_'+d:[uds[{d:v[s].item()}].assign_coords({td:v[td][{td:tv}].item() for td,tv in s.items()}).swap_dims({d:'__'+d}) for s in xndindex(v.sizes)] for d,v in non_uniform_tiles_index.items()}
     
     # concatenation of all possible tiles
     all_tiles_list = list()
