@@ -258,7 +258,7 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
     range_dim = list(set(slc.dims) - set([azimuth_dim]))[0]  # name of range dimension
     periodo_slices = xtiling(slc, nperseg=nperseg, noverlap=noverlap, prefix='periodo_')
     periodo = slc[periodo_slices]
-    periodo=periodo.drop([range_dim, azimuth_dim]).swap_dims({'__' + d: d for d in periodo_slices.keys()})
+    periodo = periodo.drop([range_dim, azimuth_dim]).swap_dims({'__' + d: d for d in periodo_slices.keys()})
     periodo_sizes = {d: k for d, k in periodo.sizes.items() if 'periodo_' in d}
 
     if 'IR_path' in kwargs: # Impulse Response has been provided
