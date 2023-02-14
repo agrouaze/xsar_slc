@@ -77,7 +77,7 @@ def compute_WV_intraburst_xspectra(dt, tile_width=None, tile_overlap=None, polar
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
-               'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
+               # 'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
 
@@ -115,7 +115,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
-               'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
+               # 'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
     xspectra = list()
@@ -145,11 +145,14 @@ def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
         # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
         # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
         xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
-    return xspectra
 
 
-def compute_IW_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 20.e3},
-                                         tile_overlap={'sample': 10.e3, 'line': 10.e3}, polarization='VV', **kwargs):
+    dims_to_transpose = [d for d in ['burst', 'tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with interburst
+    return xspectra.transpose(*dims_to_transpose, ...)
+
+
+def compute_IW_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 1.5e3},
+                                         tile_overlap={'sample': 10.e3, 'line': 0.75e3}, polarization='VV', **kwargs):
     """
     Compute IW subswath inter-burst xspectra. No deramping is applied since only magnitude is used.
     
@@ -201,7 +204,9 @@ def compute_IW_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
         # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
         # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
         xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
-    return xspectra
+    
+    dims_to_transpose = [d for d in ['burst', 'tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with intraburst
+    return xspectra.transpose(*dims_to_transpose, ...)
 
 def compute_modulation(ds, lowpass_width, spacing):
     """

@@ -31,27 +31,27 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
         landmask (optional) : If provided, land mask passed to is_ocean(). Otherwise xspectra are calculated by default
         kwargs: keyword arguments passed to compute_intraburst_xspectrum()
     """
-    from xsarslc.tools import get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
+    from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff
 
 
 
-    burst.load()
-    mean_ground_spacing = float(burst['sampleSpacing'] / np.sin(np.radians(burst.attrs['mean_incidence'])))
+    # burst.load()
+    azitime_interval = burst.attrs['azimuth_time_interval']
     azimuth_spacing = float(burst['lineSpacing'])
-    spacing = {'sample': mean_ground_spacing, 'line': azimuth_spacing}
 
     if tile_width:
-        nperseg_tile = {d: int(np.rint(tile_width[d] / spacing[d])) for d in tile_width.keys()}
+        nperseg_tile = {'line':int(np.rint(tile_width['line'] / azimuth_spacing))}
     else:
-        nperseg_tile = burst.sizes
-        tile_width = {d:nperseg_tile[d]*spacing[d] for d in nperseg_tile.keys()}
+        nperseg_tile = {'line':burst.sizes['line']}
+        tile_width = {'line':nperseg_tile['line']*azimuth_spacing}
+
 
     if tile_overlap in (0., None):
-        noverlap = {d: 0 for d in nperseg_tile.keys()}
+        tile_overlap = {'sample': 0., 'line': 0.}
+        noverlap_tile = {'line': 0}
     else:
-        noverlap = {d: int(np.rint(tile_overlap[d] / spacing[d])) for d in
-                    tile_width.keys()}  # np.rint is important for homogeneity of point numbers between bursts
+        noverlap_tile = {'line': int(np.rint(tile_overlap['line'] / azimuth_spacing))}  # np.rint is important for homogeneity of point numbers between bursts
 
     if np.any([tile_width[d]<periodo_width[d] for d in tile_width.keys()]):
         warnings.warn("One or all periodogram widths are larger than tile widths. Exceeding periodogram widths are reset to match tile width.")
@@ -62,21 +62,36 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     if np.any([periodo_overlap[d]>0.5*periodo_width[d] for d in periodo_width.keys()]):
         warnings.warn("Periodogram overlap should not exceed half of the periodogram width.")
 
-    tiles_index = xtiling(burst, nperseg=nperseg_tile, noverlap=noverlap)
-    dev = kwargs.get('dev', False)
-    if dev:
-        logging.info('reduce number of burst for dev: 2')
-        tiles_index['sample'] = tiles_index['sample'].isel({'tile_sample': slice(0, 2)})
-    tiled_burst = burst[tiles_index].drop(['sample', 'line']).swap_dims({'__' + d: d for d in tile_width.keys()})
-    tiles_sizes = {d: k for d, k in tiled_burst.sizes.items() if 'tile_' in d}
+    # ------------- defining custom sample tiles_index because of non-constant ground range spacing -------
+    incidenceAngle = FullResolutionInterpolation(burst['line'][{'line':slice(burst.sizes['line']//2, burst.sizes['line']//2+1)}], burst['sample'], 'incidenceAngle', geolocation_annotation, azitime_interval)
+    cumulative_len = (float(burst['sampleSpacing'])*np.cumsum(1./np.sin(np.radians(incidenceAngle)))).rename('cumulative ground length').squeeze(dim='line')
+    burst_width = cumulative_len[{'sample':-1}]
+    tile_width.update({'sample':tile_width.get('sample',burst_width)})
+    starts = np.arange(0.,burst_width,tile_width['sample']-tile_overlap['sample'])
+    ends = starts+float(tile_width['sample'])
+    starts = starts[ends<=float(burst_width)] # starting length restricted to available data
+    ends = ends[ends<=float(burst_width)] # ending length restricted to available data
+    istarts = np.searchsorted(cumulative_len,starts, side='right') # index of begining of tiles
+    iends = np.searchsorted(cumulative_len,ends, side='left') # index of ending of tiles
+    tile_sample = {'sample':xr.DataArray([slice(s,min(e+1,burst.sizes['sample'])) for s,e in zip(istarts,iends)], dims='tile_sample')}#, coords={'tile_sample':[(e+s)//2 for s,e in zip(istarts,iends)]})} # This is custom tile indexing along sample dimension to preserve constant tile width
+    tile_sample_coords = get_middle_tile(tile_sample)
+    tile_sample['sample'] = tile_sample['sample'].assign_coords({'tile_sample':burst['sample'][tile_sample_coords]})
+
+    # ------------- defining regular line indexing --------
+    tile_line = xtiling(burst['line'], nperseg=nperseg_tile, noverlap=noverlap_tile) # homogeneous tiling along line dimension can be done using xtiling()
+
+    # ------------- customized indexes --------
+    tiles_index = tile_sample.copy()
+    tiles_index.update(tile_line)
+
+    # ----- getting all tiles ------
+    all_tiles = get_tiles(burst, tiles_index)
+
 
     # ---------Computing quantities at tile middle locations --------------------------
-    tiles_middle = get_middle_tile(tiles_index)
-    # middle_lon = burst['longitude'][tiles_middle].rename('longitude')
-    # middle_lat = burst['latitude'][tiles_middle].rename('latitude')
+    tiles_middle = get_middle_tile(tiles_index) # this return the indexes, NOT the sample/line coord
     middle_sample = burst['sample'][{'sample': tiles_middle['sample']}]
     middle_line = burst['line'][{'line': tiles_middle['line']}]
-    azitime_interval = burst.attrs['azimuth_time_interval']
     middle_lons = FullResolutionInterpolation(middle_line, middle_sample, 'longitude', geolocation_annotation,
                                               azitime_interval)
     middle_lats = FullResolutionInterpolation(middle_line, middle_sample, 'latitude', geolocation_annotation,
@@ -108,22 +123,24 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     vel = np.sqrt(orbit['velocity_x'] ** 2 + orbit['velocity_y'] ** 2 + orbit['velocity_z'] ** 2)
     corner_time = burst['time'][{'line': tiles_corners['line']}]
 
-    # return vel, corner_time, tiles_corners
-
+    
     corner_velos = vel.interp(time=corner_time)
     # --------------------------------------------------------------------------------------
 
     xs = list()  # np.empty(tuple(tiles_sizes.values()), dtype=object)
-    combinaison_selection_tiles = [yy for yy in xndindex(tiles_sizes)]
-    pbar = tqdm(range(len(combinaison_selection_tiles)), desc='start')
+    # combinaison_selection_tiles = [yy for yy in xndindex(tiles_sizes)]
+    combinaison_selection_tiles = all_tiles
+    pbar = tqdm(range(len(all_tiles)), desc='start')
     for ii in pbar:
         pbar.set_description('loop on %s/%s tiles' % (ii,len(combinaison_selection_tiles)))
-        i = combinaison_selection_tiles[ii]
+        sub = all_tiles[ii].swap_dims({'__line':'line', '__sample':'sample'})
+        mytile = {'tile_sample':sub['tile_sample'], 'tile_line':sub['tile_line']}
+
         # ------ checking if we are over water only ------
         if 'landmask' in kwargs:
-            tile_lons = [float(corner_lons[i][{'corner_line': j, 'corner_sample': k}]) for j, k in
+            tile_lons = [float(corner_lons.sel(mytile)[{'corner_line': j, 'corner_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
-            tile_lats = [float(corner_lats[i][{'corner_line': j, 'corner_sample': k}]) for j, k in
+            tile_lats = [float(corner_lats.sel(mytile)[{'corner_line': j, 'corner_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
             water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
         else:
@@ -131,12 +148,10 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
         logging.debug('water_only : %s', water_only)
         # ------------------------------------------------
         if water_only:
-            # sub = tiled_burst[i].swap_dims({'n_line':'line','n_sample':'sample'})
-            sub = tiled_burst[i]
-
-            mean_incidence = float(corner_incs[i].mean())
-            mean_slant_range = float(corner_slantTimes[i].mean()) * celerity / 2.
-            mean_velocity = float(corner_velos[{'tile_line': i['tile_line']}].mean())
+            # sub = tiled_burst[i]
+            mean_incidence = float(corner_incs.sel(mytile).mean())
+            mean_slant_range = float(corner_slantTimes.sel(mytile).mean()) * celerity / 2.
+            mean_velocity = float(corner_velos.sel({'tile_line':sub['tile_line']}).mean())
 
             # Below is old version when full resolution variables were systematically computed
             # mean_incidence = float(sub.incidence.mean())
@@ -146,11 +161,15 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
             slant_spacing = float(sub['sampleSpacing'])
             ground_spacing = slant_spacing / np.sin(np.radians(mean_incidence))
             periodo_spacing = {'sample': ground_spacing, 'line': azimuth_spacing}
-
             nperseg_periodo = {d: int(np.rint(periodo_width[d] / periodo_spacing[d])) for d in tile_width.keys()}
             noverlap_periodo = {d: int(np.rint(periodo_overlap[d] / periodo_spacing[d])) for d in tile_width.keys()}
 
-            azimuth_spacing = float(sub['lineSpacing'])
+            if np.any([sub.sizes[d] < nperseg_periodo[d] for d in ['line', 'sample']]):
+                raise ValueError(
+                    'periodo_width ({}) is too large compared to available data (line : {} m, sample : {} m).'.format(
+                        periodo_width, sub.sizes['line'] * azimuth_spacing, sub.sizes['sample'] * ground_spacing))
+
+            # azimuth_spacing = float(sub['lineSpacing'])
             synthetic_duration = celerity * mean_slant_range / (
                         2 * burst.attrs['radar_frequency'] * mean_velocity * azimuth_spacing)
 
@@ -171,7 +190,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
             xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
                 {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
             cutoff = compute_azimuth_cutoff(xs_cut)
-            cutoff = xr.DataArray(float(cutoff), name='cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
+            cutoff = xr.DataArray(float(cutoff), name='azimuth_cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
             mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
             xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset()]))
 
@@ -204,9 +223,10 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     xs = xs.assign_coords({'longitude': middle_lons,
                            'latitude': middle_lats})  # This line also ensures adding line/sample coordinates too !! DO NOT REMOVE
     xs.attrs.update(burst.attrs)
-    xs.attrs.update({'tile_nperseg_' + d: k for d, k in nperseg_tile.items()})
-    xs.attrs.update({'tile_noverlap_' + d: k for d, k in noverlap.items()})
     xs.attrs.update({'tile_width_' + d: k for d, k in tile_width.items()})
+    xs.attrs.update({'tile_overlap_' + d: k for d, k in tile_overlap.items()})
+    xs.attrs.update({'periodo_width_' + d: k for d, k in periodo_width.items()})
+    xs.attrs.update({'periodo_overlap_' + d: k for d, k in periodo_overlap.items()})
     return xs
 
 
@@ -237,7 +257,8 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
 
     range_dim = list(set(slc.dims) - set([azimuth_dim]))[0]  # name of range dimension
     periodo_slices = xtiling(slc, nperseg=nperseg, noverlap=noverlap, prefix='periodo_')
-    periodo = slc[periodo_slices].swap_dims({'__' + d: d for d in [range_dim, azimuth_dim]})
+    periodo = slc[periodo_slices]
+    periodo=periodo.drop([range_dim, azimuth_dim]).swap_dims({'__' + d: d for d in periodo_slices.keys()})
     periodo_sizes = {d: k for d, k in periodo.sizes.items() if 'periodo_' in d}
 
     if 'IR_path' in kwargs: # Impulse Response has been provided
