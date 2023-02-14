@@ -75,7 +75,6 @@ def compute_IWS_subswath_Impulse_Response(dt, burst_list=None, tile_width={'samp
     from xsarslc.burst import crop_burst, deramp_burst
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
-               'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
     IRs = list()
@@ -95,8 +94,8 @@ def compute_IWS_subswath_Impulse_Response(dt, burst_list=None, tile_width={'samp
         burst.attrs.update(commons)
         IR_range, IR_azimuth = tile_burst_to_IR(burst, dt['geolocation_annotation'], dt['orbit'], tile_width, tile_overlap,
                            lowpass_width={'sample': 1000., 'line': 1000.},
-                           periodo_width={'sample': 2000., 'line': 4000.},
-                           periodo_overlap={'sample': 1000., 'line': 2000.})
+                           periodo_width={'sample': 4000., 'line': 4000.},
+                           periodo_overlap={'sample': 2000., 'line': 2000.})
         IRs.append(xr.merge([IR_range, IR_azimuth]).stack({'tile':{'tile_line', 'tile_sample'}}).drop('tile'))
     IRs = xr.concat(IRs, dim='tile', combine_attrs='drop_conflicts')
     return IRs
@@ -121,7 +120,6 @@ def compute_WV_Impulse_Response(dt, tile_width=None, tile_overlap=None, polariza
     from xsarslc.processing.impulseResponse import tile_burst_to_IR
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
-               'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
     
@@ -130,17 +128,16 @@ def compute_WV_Impulse_Response(dt, tile_width=None, tile_overlap=None, polariza
     burst.attrs.update(commons)
     IR_range, IR_azimuth = tile_burst_to_IR(burst, dt['geolocation_annotation'], dt['orbit'], tile_width, tile_overlap,
                            lowpass_width={'sample': 1000., 'line': 1000.},
-                           periodo_width={'sample': 2000., 'line': 4000.},
-                           periodo_overlap={'sample': 1000., 'line': 2000.})
-
+                           periodo_width={'sample': 4000., 'line': 4000.},
+                           periodo_overlap={'sample': 2000., 'line': 2000.})
     IRs = xr.merge([IR_range, IR_azimuth]).drop(['tile_line', 'tile_sample'])
     
     return IRs
 
 def tile_burst_to_IR(burst, geolocation_annotation, orbit, tile_width, tile_overlap,
                            lowpass_width={'sample': 1000., 'line': 1000.},
-                           periodo_width={'sample': 2000., 'line': 4000.},
-                           periodo_overlap={'sample': 1000., 'line': 2000.}, **kwargs):
+                           periodo_width={'sample': 4000., 'line': 4000.},
+                           periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs):
     """
     Divide burst in tiles and compute intra-burst cross-spectra using compute_intraburst_xspectrum() function.
 
@@ -157,41 +154,66 @@ def tile_burst_to_IR(burst, geolocation_annotation, orbit, tile_width, tile_over
     Keyword Args:
         kwargs: keyword arguments passed to compute_intraburst_xspectrum()
     """
-    from xsarslc.tools import get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
+    from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff
 
     burst.load()
-    mean_ground_spacing = float(burst['sampleSpacing'] / np.sin(np.radians(burst.attrs['mean_incidence'])))
+    azitime_interval = burst.attrs['azimuth_time_interval']
     azimuth_spacing = float(burst['lineSpacing'])
-    spacing = {'sample': mean_ground_spacing, 'line': azimuth_spacing}
+    
 
     if tile_width:
-        nperseg_tile = {d: int(np.rint(tile_width[d] / spacing[d])) for d in tile_width.keys()}
+        nperseg_tile = {'line':int(np.rint(tile_width['line'] / azimuth_spacing))}
     else:
-        nperseg_tile = burst.sizes
-        tile_width = {d:nperseg_tile[d]*spacing[d] for d in nperseg_tile.keys()}
+        nperseg_tile = {'line':burst.sizes['line']}
+        tile_width = {'line':nperseg_tile['line']*azimuth_spacing}
+
 
     if tile_overlap in (0., None):
-        noverlap = {d: 0 for d in nperseg_tile.keys()}
+        tile_overlap = {'sample': 0., 'line': 0.}
+        noverlap_tile = {'line': 0}
     else:
-        noverlap = {d: int(np.rint(tile_overlap[d] / spacing[d])) for d in
-                    tile_width.keys()}  # np.rint is important for homogeneity of point numbers between bursts
+        noverlap_tile = {'line': int(np.rint(tile_overlap['line'] / azimuth_spacing))}  # np.rint is important for homogeneity of point numbers between bursts
 
-    tiles_index = xtiling(burst, nperseg=nperseg_tile, noverlap=noverlap)
-    dev = kwargs.get('dev', False)
-    if dev:
-        logging.info('reduce number of burst for dev: 2')
-        tiles_index['sample'] = tiles_index['sample'].isel({'tile_sample': slice(0, 2)})
-    tiled_burst = burst[tiles_index].drop(['sample', 'line']).swap_dims({'__' + d: d for d in tile_width.keys()})
-    tiles_sizes = {d: k for d, k in tiled_burst.sizes.items() if 'tile_' in d}
+    if np.any([tile_width[d]<periodo_width[d] for d in tile_width.keys()]):
+        warnings.warn("One or all periodogram widths are larger than tile widths. Exceeding periodogram widths are reset to match tile width.")
+
+    for d in tile_width.keys():
+        periodo_width[d] = min(periodo_width[d], tile_width[d])
+
+    if np.any([periodo_overlap[d]>0.5*periodo_width[d] for d in periodo_width.keys()]):
+        warnings.warn("Periodogram overlap should not exceed half of the periodogram width.")
+
+    # ------------- defining custom sample tiles_index because of non-constant ground range spacing -------
+    incidenceAngle = FullResolutionInterpolation(burst['line'][{'line':slice(burst.sizes['line']//2, burst.sizes['line']//2+1)}], burst['sample'], 'incidenceAngle', geolocation_annotation, azitime_interval)
+    cumulative_len = (float(burst['sampleSpacing'])*np.cumsum(1./np.sin(np.radians(incidenceAngle)))).rename('cumulative ground length').squeeze(dim='line')
+    burst_width = cumulative_len[{'sample':-1}]
+    tile_width.update({'sample':tile_width.get('sample',burst_width)})
+    starts = np.arange(0.,burst_width,tile_width['sample']-tile_overlap['sample'])
+    ends = starts+float(tile_width['sample'])
+    starts = starts[ends<=float(burst_width)] # starting length restricted to available data
+    ends = ends[ends<=float(burst_width)] # ending length restricted to available data
+    istarts = np.searchsorted(cumulative_len,starts, side='right') # index of begining of tiles
+    iends = np.searchsorted(cumulative_len,ends, side='left') # index of ending of tiles
+    tile_sample = {'sample':xr.DataArray([slice(s,min(e+1,burst.sizes['sample'])) for s,e in zip(istarts,iends)], dims='tile_sample')}#, coords={'tile_sample':[(e+s)//2 for s,e in zip(istarts,iends)]})} # This is custom tile indexing along sample dimension to preserve constant tile width
+    tile_sample_coords = get_middle_tile(tile_sample)
+    tile_sample['sample'] = tile_sample['sample'].assign_coords({'tile_sample':burst['sample'][tile_sample_coords]})
+
+    # ------------- defining regular line indexing --------
+    tile_line = xtiling(burst['line'], nperseg=nperseg_tile, noverlap=noverlap_tile) # homogeneous tiling along line dimension can be done using xtiling()
+
+    # ------------- customized indexes --------
+    tiles_index = tile_sample.copy()
+    tiles_index.update(tile_line)
+
+    # ----- getting all tiles ------
+    all_tiles = get_tiles(burst, tiles_index)
+
 
     # ---------Computing quantities at tile middle locations --------------------------
     tiles_middle = get_middle_tile(tiles_index)
-    # middle_lon = burst['longitude'][tiles_middle].rename('longitude')
-    # middle_lat = burst['latitude'][tiles_middle].rename('latitude')
     middle_sample = burst['sample'][{'sample': tiles_middle['sample']}]
     middle_line = burst['line'][{'line': tiles_middle['line']}]
-    azitime_interval = burst.attrs['azimuth_time_interval']
     middle_lons = FullResolutionInterpolation(middle_line, middle_sample, 'longitude', geolocation_annotation,
                                               azitime_interval)
     middle_lats = FullResolutionInterpolation(middle_line, middle_sample, 'latitude', geolocation_annotation,
@@ -199,9 +221,7 @@ def tile_burst_to_IR(burst, geolocation_annotation, orbit, tile_width, tile_over
 
     # ---------Computing quantities at tile corner locations  --------------------------
     tiles_corners = get_corner_tile(tiles_index)
-    # The two lines below can be called if longitude and latitude are already in burst dataset at full resolution
-    # corner_lon = burst['longitude'][tiles_corners].rename('corner_longitude').drop(['line','sample'])
-    # corner_lat = burst['latitude'][tiles_corners].rename('corner_latitude').drop(['line','sample'])
+
 
     # Having variables below at corner positions is sufficent for further calculations (and save memory space)
     corner_sample = burst['sample'][{'sample': tiles_corners['sample']}]
@@ -228,11 +248,12 @@ def tile_burst_to_IR(burst, geolocation_annotation, orbit, tile_width, tile_over
     IR_range = list()
     IR_azimuth = list()
 
-    for i in xndindex(tiles_sizes):
+    for sub in all_tiles:
+        sub = sub.swap_dims({'__line':'line', '__sample':'sample'})
+        mytile = {'tile_sample':sub['tile_sample'], 'tile_line':sub['tile_line']}
         
-        sub = tiled_burst[i]
 
-        mean_incidence = float(corner_incs[i].mean())
+        mean_incidence = float(corner_incs.sel(mytile).mean())
 
         slant_spacing = float(sub['sampleSpacing'])
         ground_spacing = slant_spacing / np.sin(np.radians(mean_incidence))
@@ -241,20 +262,20 @@ def tile_burst_to_IR(burst, geolocation_annotation, orbit, tile_width, tile_over
         nperseg_periodo = {'sample':2048, 'line':256}
         noverlap_periodo = {'sample':1024, 'line':128}
 
-        azimuth_spacing = float(sub['lineSpacing'])
-
         mod = sub['digital_number'] if sub.swath=='WV' else sub['deramped_digital_number']
         mod = compute_modulation(mod, lowpass_width=lowpass_width,
                                      spacing={'sample': ground_spacing, 'line': azimuth_spacing})
         rg_ir, azi_ir = compute_rg_az_response(mod, mean_incidence, slant_spacing, azimuth_spacing,
                                                   nperseg=nperseg_periodo,
                                                   noverlap=noverlap_periodo, **kwargs)
+
         mean_incidence = xr.DataArray(mean_incidence, name='mean_incidence', attrs={'long_name':'incidence at middle tile', 'units':'degree'})
-        rg_ir = xr.merge([rg_ir.to_dataset(), mean_incidence.to_dataset()])
-        azi_ir = xr.merge([azi_ir.to_dataset(), mean_incidence.to_dataset()])
-            
+        rg_ir = xr.merge([rg_ir, mean_incidence.to_dataset()])
+        azi_ir = xr.merge([azi_ir, mean_incidence.to_dataset()])
+
         IR_range.append(rg_ir.mean(dim=['periodo_sample','periodo_line'], keep_attrs=True))
         IR_azimuth.append(azi_ir.mean(dim=['periodo_sample','periodo_line'], keep_attrs=True))
+
 
     if not IR_range: 
         return
@@ -308,25 +329,24 @@ def compute_rg_az_response(slc, mean_incidence, slant_spacing, azimuth_spacing,
     range_dim = list(set(slc.dims) - set([azimuth_dim]))[0]  # name of range dimension
     
     periodo_slices = xtiling(slc, nperseg=nperseg, noverlap=noverlap, prefix='periodo_')
-    periodo = slc[periodo_slices].swap_dims({'__' + d: d for d in [range_dim, azimuth_dim]})
+    periodo = slc[periodo_slices]
+    periodo = periodo.drop([range_dim, azimuth_dim]).swap_dims({'__' + d: d for d in periodo_slices.keys()})
     periodo_sizes = {d: k for d, k in periodo.sizes.items() if 'periodo_' in d}
 
-    range_IR = np.empty(tuple(periodo_sizes.values()), dtype=object)
-    azimuth_IR = np.empty(tuple(periodo_sizes.values()), dtype=object)
+    range_IR = list() #np.empty(tuple(periodo_sizes.values()), dtype=object)
+    azimuth_IR = list()# np.empty(tuple(periodo_sizes.values()), dtype=object)
 
     for i in xndindex(periodo_sizes):
         image = periodo[i]
         azi_spec, rg_spec = compute_IR(image, azimuth_dim=azimuth_dim,**kwargs)
-        range_IR[tuple(i.values())] = rg_spec
-        azimuth_IR[tuple(i.values())] = azi_spec
+        range_IR.append(rg_spec)
+        azimuth_IR.append(azi_spec)
 
-    range_IR = [list(a) for a in list(range_IR)]  # must be generalized for larger number of dimensions
-    range_IR = xr.combine_nested(range_IR, concat_dim=periodo_sizes.keys(), combine_attrs='drop_conflicts')
-    azimuth_IR = [list(a) for a in list(azimuth_IR)]  # must be generalized for larger number of dimensions
-    azimuth_IR = xr.combine_nested(azimuth_IR, concat_dim=periodo_sizes.keys(), combine_attrs='drop_conflicts')
-    
-    range_IR = range_IR.assign_coords(periodo.coords)
-    azimuth_IR = azimuth_IR.assign_coords(periodo.coords)
+    range_IR = xr.combine_by_coords([x.expand_dims(['periodo_sample', 'periodo_line']) for x in range_IR], combine_attrs='drop_conflicts')
+    azimuth_IR = xr.combine_by_coords([x.expand_dims(['periodo_sample', 'periodo_line']) for x in azimuth_IR], combine_attrs='drop_conflicts')
+
+    range_IR = range_IR/range_IR.mean(dim='freq_sample') # normalization
+    azimuth_IR = azimuth_IR/azimuth_IR.mean(dim='freq_line') # normalization
 
     # dealing with wavenumbers
     ground_range_spacing = slant_spacing / np.sin(np.radians(mean_incidence))
