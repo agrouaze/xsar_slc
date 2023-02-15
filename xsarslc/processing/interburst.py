@@ -319,7 +319,7 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
 
     out = out.assign_coords(periodo0.drop(['line', 'sample']).coords)
 
-    out.attrs.update({'mean_incidence': mean_incidence})
+    out.attrs.update({'long_name':'successive bursts overlap cross-spectra', 'mean_incidence': mean_incidence})
 
     # dealing with wavenumbers
     ground_range_spacing = slant_spacing / np.sin(np.radians(out.mean_incidence))

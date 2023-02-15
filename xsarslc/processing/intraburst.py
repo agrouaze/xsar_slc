@@ -182,14 +182,14 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
             xspecs_m = xspecs.mean(dim=['periodo_line', 'periodo_sample'],
                                    keep_attrs=True)  # averaging all the periodograms in each tile
             xspecs_v = xspecs.drop_vars(set(xspecs.keys())-set([v for v in xspecs.keys() if 'xspectra' in v])) # keeping only xspectra before evaluating variance below
-            xspecs_v = xspecs_v.var(dim=['periodo_line', 'periodo_sample'], keep_attrs=True)  # variance of periodograms in each tile
+            xspecs_v = xspecs_v.var(dim=['periodo_line', 'periodo_sample'], keep_attrs=False)  # variance of periodograms in each tile
             xspecs_v = xspecs_v.rename({x:'var_'+x for x in xspecs_v.keys()}) # renaming variance xspectra
             
             # ------------- tau ----------------
             tau = float(xspecs_m.attrs.pop('tau'))
             tau = xr.DataArray(float(tau), name='tau', attrs={'long_name': 'delay between two successive looks', 'units': 's'})
             # ------------- cut-off ------------
-            cutoff_tau = [str(i) + 'tau' for i in [1, 2, 3, 0] if str(i) + 'tau' in xspecs_m.dims][0]  # tau used to compute azimuthal cutoff
+            cutoff_tau = [str(i) + 'tau' for i in [3, 2, 1, 0] if str(i) + 'tau' in xspecs_m.dims][0]  # tau used to compute azimuthal cutoff
             xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
                 {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
             cutoff = compute_azimuth_cutoff(xs_cut)
@@ -418,7 +418,7 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     for i in range(nlooks):
         concat_spec = xr.concat(xspecs[str(i) + 'tau'], dim=str(i) + 'tau').rename('xspectra_{}tau'.format(i))
         concat_spec.attrs.update(
-            {'nlooks': nlooks, 'look_width': look_width, 'look_overlap': look_overlap, 'look_window': str(look_window),
+            {'long_name':'sub-looks cross-spectra {} tau apart'.format(i), 'nlooks': nlooks, 'look_width': look_width, 'look_overlap': look_overlap, 'look_window': str(look_window),
              'tau': tau})
         merged_xspecs.append(concat_spec.to_dataset())  # adding to_dataset() ensures promote_attrs=False per default
 
