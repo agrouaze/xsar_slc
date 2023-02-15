@@ -10,7 +10,7 @@ from xsarslc.tools import xtiling, xndindex
 import warnings
 from tqdm import tqdm
 
-def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, tile_overlap,
+def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, tile_width, tile_overlap,
                            lowpass_width={'sample': 1000., 'line': 1000.},
                            periodo_width={'sample': 4000., 'line': 4000.},
                            periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs):
@@ -32,7 +32,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
         kwargs: keyword arguments passed to compute_intraburst_xspectrum()
     """
     from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
-    from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff
+    from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
 
 
 
@@ -111,10 +111,10 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     azitime_interval = burst.attrs['azimuth_time_interval']
     corner_lons = FullResolutionInterpolation(corner_line, corner_sample, 'longitude', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl']).rename(
-        'corner_longitude')
+        'corner_longitude').drop(['corner_line', 'corner_sample'])
     corner_lats = FullResolutionInterpolation(corner_line, corner_sample, 'latitude', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl']).rename(
-        'corner_latitude')
+        'corner_latitude').drop(['corner_line', 'corner_sample'])
     corner_incs = FullResolutionInterpolation(corner_line, corner_sample, 'incidenceAngle', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl'])
     corner_slantTimes = FullResolutionInterpolation(corner_line, corner_sample, 'slantRangeTime',
@@ -132,7 +132,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
     combinaison_selection_tiles = all_tiles
     pbar = tqdm(range(len(all_tiles)), desc='start')
     for ii in pbar:
-        pbar.set_description('loop on %s/%s tiles' % (ii,len(combinaison_selection_tiles)))
+        pbar.set_description('loop on %s/%s tiles' % (ii+1,len(combinaison_selection_tiles)))
         sub = all_tiles[ii].swap_dims({'__line':'line', '__sample':'sample'})
         mytile = {'tile_sample':sub['tile_sample'], 'tile_line':sub['tile_line']}
 
@@ -173,26 +173,34 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, tile_width, til
             synthetic_duration = celerity * mean_slant_range / (
                         2 * burst.attrs['radar_frequency'] * mean_velocity * azimuth_spacing)
 
-            mod = sub['digital_number'] if sub.swath=='WV' else sub['deramped_digital_number']
-            mod = compute_modulation(mod, lowpass_width=lowpass_width,
+            DN = sub['digital_number'] if sub.swath=='WV' else sub['deramped_digital_number']
+            mod = compute_modulation(DN, lowpass_width=lowpass_width,
                                      spacing={'sample': ground_spacing, 'line': azimuth_spacing})
             xspecs = compute_intraburst_xspectrum(mod, mean_incidence, slant_spacing, azimuth_spacing,
                                                   synthetic_duration, nperseg=nperseg_periodo,
                                                   noverlap=noverlap_periodo, **kwargs)
             xspecs_m = xspecs.mean(dim=['periodo_line', 'periodo_sample'],
                                    keep_attrs=True)  # averaging all the periodograms in each tile
+            xspecs_v = xspecs.drop_vars(set(xspecs.keys())-set([v for v in xspecs.keys() if 'xspectra' in v])) # keeping only xspectra before evaluating variance below
+            xspecs_v = xspecs_v.var(dim=['periodo_line', 'periodo_sample'], keep_attrs=False)  # variance of periodograms in each tile
+            xspecs_v = xspecs_v.rename({x:'var_'+x for x in xspecs_v.keys()}) # renaming variance xspectra
             
             # ------------- tau ----------------
             tau = float(xspecs_m.attrs.pop('tau'))
             tau = xr.DataArray(float(tau), name='tau', attrs={'long_name': 'delay between two successive looks', 'units': 's'})
             # ------------- cut-off ------------
-            cutoff_tau = [str(i) + 'tau' for i in [1, 2, 3, 0] if str(i) + 'tau' in xspecs_m.dims][0]  # tau used to compute azimuthal cutoff
+            cutoff_tau = [str(i) + 'tau' for i in [3, 2, 1, 0] if str(i) + 'tau' in xspecs_m.dims][0]  # tau used to compute azimuthal cutoff
             xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
                 {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
             cutoff = compute_azimuth_cutoff(xs_cut)
-            cutoff = xr.DataArray(float(cutoff), name='azimuth_cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
+            # ------------- nv ------------
+            nv = compute_normalized_variance(mod)
+            # ------------- mean sigma0 ------------
+            sigma0 = compute_mean_sigma0(DN, calibration['sigma0_lut'])
+            # ------------- mean incidence ------------
             mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
-            xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset()]))
+            # ------------- concatenate all variables ------------
+            xs.append(xr.merge([xspecs_m, xspecs_v, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset()]))
 
     if not xs:  # All tiles are over land -> no xspectra available
         return
@@ -410,7 +418,7 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     for i in range(nlooks):
         concat_spec = xr.concat(xspecs[str(i) + 'tau'], dim=str(i) + 'tau').rename('xspectra_{}tau'.format(i))
         concat_spec.attrs.update(
-            {'nlooks': nlooks, 'look_width': look_width, 'look_overlap': look_overlap, 'look_window': str(look_window),
+            {'long_name':'sub-looks cross-spectra {} tau apart'.format(i), 'nlooks': nlooks, 'look_width': look_width, 'look_overlap': look_overlap, 'look_window': str(look_window),
              'tau': tau})
         merged_xspecs.append(concat_spec.to_dataset())  # adding to_dataset() ensures promote_attrs=False per default
 
