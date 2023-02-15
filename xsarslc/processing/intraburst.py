@@ -183,7 +183,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
                                    keep_attrs=True)  # averaging all the periodograms in each tile
             xspecs_v = xspecs.drop_vars(set(xspecs.keys())-set([v for v in xspecs.keys() if 'xspectra' in v])) # keeping only xspectra before evaluating variance below
             xspecs_v = xspecs_v.var(dim=['periodo_line', 'periodo_sample'], keep_attrs=True)  # variance of periodograms in each tile
-            xspecs_v = xspecs_v.rename({x:x+'_variance' for x in xspecs_v.keys()}) # renaming variance xspectra
+            xspecs_v = xspecs_v.rename({x:'var_'+x for x in xspecs_v.keys()}) # renaming variance xspectra
             
             # ------------- tau ----------------
             tau = float(xspecs_m.attrs.pop('tau'))

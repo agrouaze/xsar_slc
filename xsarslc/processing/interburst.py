@@ -138,10 +138,10 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     azitime_interval = burst.attrs['azimuth_time_interval']
     corner_lons = FullResolutionInterpolation(corner_line, corner_sample, 'longitude', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl']).rename(
-        'corner_longitude')
+        'corner_longitude').drop(['corner_line', 'corner_sample'])
     corner_lats = FullResolutionInterpolation(corner_line, corner_sample, 'latitude', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl']).rename(
-        'corner_latitude')
+        'corner_latitude').drop(['corner_line', 'corner_sample'])
     corner_incs = FullResolutionInterpolation(corner_line, corner_sample, 'incidenceAngle', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl'])
     corner_slantTimes = FullResolutionInterpolation(corner_line, corner_sample, 'slantRangeTime',
