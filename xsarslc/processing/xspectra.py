@@ -84,10 +84,11 @@ def compute_WV_intraburst_xspectra(dt, tile_width=None, tile_overlap=None, polar
     burst = dt['measurement'].ds.sel(pol=polarization)
     burst.load()
     burst.attrs.update(commons)
-    xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], tile_width, tile_overlap, **kwargs)
+    xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'], tile_width, tile_overlap, **kwargs)
     xspectra = xspectra.drop(['tile_line', 'tile_sample']) # dropping coordinate is important to not artificially multiply the dimensions
     if xspectra.sizes['tile_line']==xspectra.sizes['tile_sample']==1: # In WV mode, it will probably be only one tile
         xspectra = xspectra.squeeze(['tile_line', 'tile_sample'])
+    dims_to_transpose = [d for d in ['tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with intraburst
     return xspectra
 
 def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 20.e3},
@@ -115,7 +116,6 @@ def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
-               # 'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
     xspectra = list()
@@ -132,8 +132,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
         burst.load()
         burst.attrs.update(commons)
-        burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], tile_width,
-                                                tile_overlap, **kwargs)
+        burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'], tile_width,tile_overlap, **kwargs)
         if burst_xspectra:
             xspectra.append(burst_xspectra.drop(['tile_line', 'tile_sample'])) # dropping coordinate is important to not artificially multiply the dimensions
 
@@ -191,7 +190,7 @@ def compute_IW_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
                             merge_burst_annotation=True).sel(pol=polarization)
         burst0.attrs.update(commons)
         burst1.attrs.update(commons)
-        interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], tile_width,
+        interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], dt['calibration'], tile_width,
                                                               tile_overlap, **kwargs)
         if interburst_xspectra:
             xspectra.append(interburst_xspectra.drop(['tile_line', 'tile_sample']))
@@ -275,7 +274,38 @@ def compute_azimuth_cutoff(spectrum, definition='drfab'):
     except:
         cutoff = np.nan
     
+    cutoff = xr.DataArray(float(cutoff), name='azimuth_cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
     return cutoff
+
+
+def compute_normalized_variance(modulation):
+    """
+    compute normalized variance from modulation of digital numbers
+    Args:
+        modulation (xarray): output from compute_modulation()
+    Return:
+        (float): normalized variance
+    """
+    detected_mod = np.abs(modulation)**2.
+    nv = detected_mod.var(dim=['line', 'sample'])/((detected_mod.mean(dim=['line', 'sample']))**2)
+    nv = nv.rename('normalized_variance')
+    nv.attrs.update({'long_name': 'normalized variance', 'units': ''})
+    return nv
+
+def compute_mean_sigma0(DN, sigma0_lut):
+    """
+    compute mean calibrated sigma0
+    Args:
+        DN (xarray): digital number
+        sigma0_lut (xarray) : calibration LUT of dataset
+    Return:
+        (xarray): calibrated mean sigma0 (single value)
+    """
+    sigma0 = np.abs(DN)**2/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)
+    sigma0 = sigma0.mean(dim=['line','sample']).rename('sigma0')
+    sigma0.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
+    return sigma0
+
 
 
 def symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az'):

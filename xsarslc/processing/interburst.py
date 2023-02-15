@@ -9,7 +9,7 @@ from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 
 
-def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile_width, tile_overlap,
+def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, calibration, tile_width, tile_overlap,
                                     lowpass_width={'sample': 1000., 'line': 1000.},
                                     periodo_width={'sample': 2000., 'line': 1200.},
                                     periodo_overlap={'sample': 1000., 'line': 600.}, **kwargs):
@@ -30,7 +30,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
         kwargs: keyword arguments passed to compute_interburst_xspectrum()
     """
     from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
-    from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff
+    from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
 
     # find overlapping burst portion
 
@@ -219,9 +219,14 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, tile
             # ------------- cut-off --------------
             xs_cut = xspecs_m.swap_dims({'freq_sample': 'k_rg', 'freq_line': 'k_az'})
             cutoff = compute_azimuth_cutoff(xs_cut)
-            cutoff = xr.DataArray(float(cutoff), name='azimuth_cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
+            # ------------- nv ------------
+            nv = compute_normalized_variance(mod0)
+            # ------------- mean sigma0 ------------
+            sigma0 = compute_mean_sigma0(sub0['digital_number'], calibration['sigma0_lut'])
+            # ------------- mean incidence ------------
             mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
-            xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset()]))
+            # ------------- concatenate all variables ------------
+            xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset()]))
 
 
     if not xs:  # All tiles are over land -> no xspectra available
