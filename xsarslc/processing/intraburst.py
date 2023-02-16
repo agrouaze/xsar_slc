@@ -98,23 +98,23 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
                                               azitime_interval)
 
     # ---------Computing quantities at tile corner locations  --------------------------
-    tiles_corners = get_corner_tile(tiles_index)
+    tiles_corners = get_corner_tile(tiles_index) # returns index and not sample/line coordinates!
     # The two lines below can be called if longitude and latitude are already in burst dataset at full resolution
     # corner_lon = burst['longitude'][tiles_corners].rename('corner_longitude').drop(['line','sample'])
     # corner_lat = burst['latitude'][tiles_corners].rename('corner_latitude').drop(['line','sample'])
 
     # Having variables below at corner positions is sufficent for further calculations (and save memory space)
-    corner_sample = burst['sample'][{'sample': tiles_corners['sample']}]
+    corner_sample = burst['sample'][{'sample': tiles_corners['sample']}].rename('corner_sample')
     corner_sample = corner_sample.stack(flats=corner_sample.dims)
-    corner_line = burst['line'][{'line': tiles_corners['line']}]
+    corner_line = burst['line'][{'line': tiles_corners['line']}].rename('corner_line')
     corner_line = corner_line.stack(flatl=corner_line.dims)
     azitime_interval = burst.attrs['azimuth_time_interval']
     corner_lons = FullResolutionInterpolation(corner_line, corner_sample, 'longitude', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl']).rename(
-        'corner_longitude').drop(['corner_line', 'corner_sample'])
+        'corner_longitude').drop(['c_line', 'c_sample'])
     corner_lats = FullResolutionInterpolation(corner_line, corner_sample, 'latitude', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl']).rename(
-        'corner_latitude').drop(['corner_line', 'corner_sample'])
+        'corner_latitude').drop(['c_line', 'c_sample'])
     corner_incs = FullResolutionInterpolation(corner_line, corner_sample, 'incidenceAngle', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl'])
     corner_slantTimes = FullResolutionInterpolation(corner_line, corner_sample, 'slantRangeTime',
@@ -122,9 +122,8 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
         dim=['flats', 'flatl'])
     vel = np.sqrt(orbit['velocity_x'] ** 2 + orbit['velocity_y'] ** 2 + orbit['velocity_z'] ** 2)
     corner_time = burst['time'][{'line': tiles_corners['line']}]
-
-    
     corner_velos = vel.interp(time=corner_time)
+
     # --------------------------------------------------------------------------------------
 
     xs = list()  # np.empty(tuple(tiles_sizes.values()), dtype=object)
@@ -138,9 +137,9 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
 
         # ------ checking if we are over water only ------
         if 'landmask' in kwargs:
-            tile_lons = [float(corner_lons.sel(mytile)[{'corner_line': j, 'corner_sample': k}]) for j, k in
+            tile_lons = [float(corner_lons.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
-            tile_lats = [float(corner_lats.sel(mytile)[{'corner_line': j, 'corner_sample': k}]) for j, k in
+            tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
             water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
         else:
@@ -206,28 +205,21 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
         return
     
     # -------Returned xspecs have different shape in range (to keep same dk). Lines below only select common portions of xspectra-----
-    # Nfreq_min = min([xs[i].sizes['freq_sample'] for i in np.ndindex(xs.shape)])
     Nfreq_min = min([x.sizes['freq_sample'] for x in xs])
     # line below rearange xs on (tile_sample, tile_line) grid and expand_dims ensures rearangment in combination by coords
     xs = xr.combine_by_coords(
         [x[{'freq_sample': slice(None, Nfreq_min)}].expand_dims(['tile_sample', 'tile_line']) for x in xs],
         combine_attrs='drop_conflicts')
 
-    # for i in np.ndindex(xs.shape):
-    # xs[i] = xs[i][{'freq_sample':slice(None,Nfreq_min)}]
-    # ------------------------------------------------
+    # ------------------- Formatting returned dataset -----------------------------
 
-    # xs = [list(a) for a in list(xs)] # must be generalized for larger number of dimensions
-    # xs = xr.combine_nested(xs, concat_dim=tiles_sizes.keys(), combine_attrs='drop_conflicts')
-    # xs = xs.assign_coords(tiles.coords)
-    # tau
-    # taus.attrs.update({'long_name': 'delay between two successive looks', 'units': 's'})
-    # cutoff.attrs.update({'long_name': 'Azimuthal cut-off', 'units': 'm'})
+    corner_sample = corner_sample.unstack(dim=['flats']).drop('c_sample')
+    corner_line = corner_line.unstack(dim=['flatl']).drop('c_line')
+    corner_sample.attrs.update({'long_name':'sample number in original digital number matrix'})
+    corner_line.attrs.update({'long_name':'line number in original digital number matrix'})
 
-    xs = xr.merge([xs, corner_lons.to_dataset(), corner_lats.to_dataset()],
+    xs = xr.merge([xs, corner_lons.to_dataset(), corner_lats.to_dataset(), corner_line.to_dataset(), corner_sample.to_dataset()],
                   combine_attrs='drop_conflicts')
-    # xs = xr.merge([xs, taus.to_dataset(), cutoff.to_dataset(), corner_lons.to_dataset(), corner_lats.to_dataset()],
-    #               combine_attrs='drop_conflicts')
     xs = xs.assign_coords({'longitude': middle_lons,
                            'latitude': middle_lats})  # This line also ensures adding line/sample coordinates too !! DO NOT REMOVE
     xs.attrs.update(burst.attrs)

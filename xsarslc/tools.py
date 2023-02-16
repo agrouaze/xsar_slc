@@ -286,9 +286,9 @@ def get_corner_tile(tiles):
     corners = dict()
     for d, v in tiles.items():
         if v.dtype!=int:
-            corners[d] = xr.apply_ufunc(slice_bound_indexes, v, input_core_dims=[['tile_'+d]],output_core_dims=[['tile_'+d,'corner_'+d]])
+            corners[d] = xr.apply_ufunc(slice_bound_indexes, v, input_core_dims=[['tile_'+d]],output_core_dims=[['tile_'+d,'c_'+d]])
         else:
-            corners[d] = v[{'__' + d: [0, -1]}].rename({'__' + d: 'corner_' + d})
+            corners[d] = v[{'__' + d: [0, -1]}].rename({'__' + d: 'c_' + d})
     return corners
 
 def get_middle_tile(tiles):
