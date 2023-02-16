@@ -12,8 +12,8 @@ from tqdm import tqdm
 
 def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, tile_width, tile_overlap,
                            lowpass_width={'sample': 1000., 'line': 1000.},
-                           periodo_width={'sample': 4000., 'line': 4000.},
-                           periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs):
+                           periodo_width={'sample': 4000., 'line': 4000.}, #4000 en 20km # 1800 en 2km tiles
+                           periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs): # half width
     """
     Divide burst in tiles and compute intra-burst cross-spectra using compute_intraburst_xspectrum() function.
 

@@ -125,6 +125,8 @@ def netcdf_compliant(dataset):
     for vv in dataset.variables.keys():
         if dataset[vv].dtype == 'int64':  # to avoid ncview: netcdf_dim_value: unknown data type (10) for corner_line ...
             dataset[vv] = dataset[vv].astype(np.int16)
+        else:
+            dataset[vv] = dataset[vv].astype(np.float32) # to reduce volume of output files
     # for vv in dataset.variables.keys():
     #     if dataset[vv].dtype == 'float64':
     #         dataset[vv] = dataset[vv].astype(np.float32)

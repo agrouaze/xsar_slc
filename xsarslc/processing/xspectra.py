@@ -31,18 +31,24 @@ def compute_subswath_xspectra(dt, **kwargs):
         intra_xs = intra_xs.drop('spatial_ref')
         #intra_xs.attrs.update({'start_date': str(intra_xs.start_date)})
         #intra_xs.attrs.update({'stop_date': str(intra_xs.stop_date)})
+    if isinstance(intra_xs,xr.Dataset):
         intra_xs.attrs.update({'footprint': str(intra_xs.footprint)})
-        #intra_xs.attrs.pop('pixel_line_m')
-        #intra_xs.attrs.pop('pixel_sample_m')
+        if 'multidataset' in intra_xs.attrs:
+            intra_xs.attrs.update({'multidataset': str(intra_xs.multidataset)})
+            #intra_xs.attrs.pop('pixel_line_m')
+            #intra_xs.attrs.pop('pixel_sample_m')
 
     inter_xs = compute_IW_subswath_interburst_xspectra(dt, **kwargs)
     if 'spatial_ref' in inter_xs:
         inter_xs = inter_xs.drop('spatial_ref')
-        #inter_xs.attrs.update({'start_date': str(inter_xs.start_date)})
-        #inter_xs.attrs.update({'stop_date': str(inter_xs.stop_date)})
+    if isinstance(inter_xs, xr.Dataset):
+        if 'multidataset' in inter_xs.attrs:
+            inter_xs.attrs.update({'multidataset': str(inter_xs.multidataset)})
+            #inter_xs.attrs.update({'start_date': str(inter_xs.start_date)})
+            #inter_xs.attrs.update({'stop_date': str(inter_xs.stop_date)})
         inter_xs.attrs.update({'footprint': str(inter_xs.footprint)})
-        #inter_xs.attrs.pop('pixel_line_m')
-        #inter_xs.attrs.pop('pixel_sample_m')
+            #inter_xs.attrs.pop('pixel_line_m')
+            #inter_xs.attrs.pop('pixel_sample_m')
     if not inter_xs and not intra_xs:
         dt = None
     else:
