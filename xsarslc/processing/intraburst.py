@@ -193,11 +193,6 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
             xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
                 {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
             cutoff = compute_azimuth_cutoff(xs_cut)
-<<<<<<< HEAD
-            cutoff = xr.DataArray(float(cutoff), name='azimuth_cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
-            mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence angle at centre of the tile', 'units':'degree'})
-            xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset()]))
-=======
             # ------------- nv ------------
             nv = compute_normalized_variance(mod)
             # ------------- mean sigma0 ------------
@@ -206,7 +201,6 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
             mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
             # ------------- concatenate all variables ------------
             xs.append(xr.merge([xspecs_m, xspecs_v, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset()]))
->>>>>>> main
 
     if not xs:  # All tiles are over land -> no xspectra available
         return
