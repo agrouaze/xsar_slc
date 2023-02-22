@@ -7,9 +7,35 @@ import xarray as xr
 from xsarslc.tools import xtiling, xndindex
 import warnings
 import xsar
+import argparse
 
+def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sample':400,'line':400}, tile_width = {'sample':17600.,'line':17600.}, **kwargs)
+    """
+    compute low resolution nrcs tiles from L1B SLC product
+    Args:
+        file_path (str): path to the L1B SLC product
+        xspectra (str): 'intra' or 'inter'
+        posting (dict): Desired output posting. {name of dimension (str): spacing in [m] (float)}. 
+        tile_width (dict): form {name of dimension (str): width in [m] (float)}. Desired width of the output tile (should be smaller or equal than provided data)
+    keyword Args:
+        resolution (dict, optional): resolution for filter. default is twice the posting (Nyquist)
+    Returns:
+        (xarray.DataArray) low resolution tile with field "nrcs"
+    """
+    import datatree
+    dt = datatree.open_datatree(file_path)
+    L1B = dt[xspectra+'burst_xspectra']
+    tiles = get_tiles_from_L1B_SLC(L1B)
+    low_res_tiles = list()
+    for mytile in tiles:
+        mytile.load()
+        incidence = mytile['incidence']
+        spacing = {'sample':mytile['sampleSpacing']/np.sin(np.radians(incidence)), 'line':mytile['lineSpacing']}
+        low_res_tiles.append(compute_low_res_tiles(mytile, spacing = spacing, posting = posting, tile_width=tile_width), **kwargs)
+    res = xr.combine_by_coords([t.expand_dims(['burst', 'tile_sample', 'tile_line']) for t in low_res_tiles])
+    return res
 
-def compute_low_res_tiles(tile, spacing, posting, output_width, resolution=None):
+def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None):
     """
     Compute low resolution tiles on defined ground spacing based on full resolution SLC tile.
     Code example:
@@ -17,14 +43,14 @@ def compute_low_res_tiles(tile, spacing, posting, output_width, resolution=None)
     mytile = tiles[0]
     spacing = {'sample':mytile['sampleSpacing']/np.sin(np.radians(mytile['incidence'])), 'line':mytile['lineSpacing']}
     posting = {'sample':400,'line':400}
-    output_width = {'sample':17600.,'line':17600.}
-    low_res_tile = compute_low_res_tiles(mytile, spacing = spacing, posting = posting, output_width = output_width)
+    tile_width = {'sample':17600.,'line':17600.}
+    low_res_tile = compute_low_res_tiles(mytile, spacing = spacing, posting = posting, tile_width = tile_width)
 
     Args:
         tile (xarray.DataArray) : A tile dataArray (list element generated with get_tiles_from_L1B_SLC()).
         spacing (dict): GROUND spacing of provided tile. {name of dimension (str): spacing in [m] (float)}. 
         posting (dict): Desired output posting. {name of dimension (str): spacing in [m] (float)}. 
-        output_width (dict): form {name of dimension (str): width in [m] (float)}. Desired width of the output tile (should be smaller or equal than provided data)
+        tile_width (dict): form {name of dimension (str): width in [m] (float)}. Desired width of the output tile (should be smaller or equal than provided data)
         resolution (dict, optional): resolution for filter. default is twice the posting (Nyquist)
     Returns:
         (xarray.Dataset) : dataset of filtered/resampled nrcs
@@ -43,15 +69,15 @@ def compute_low_res_tiles(tile, spacing, posting, output_width, resolution=None)
 
     low_pass = xr.apply_ufunc(fftconvolve, nrcs.where(mask, 0.), gk,
                                         input_core_dims=[resolution.keys(), swap_dims.values()], vectorize=True,
-                                        output_core_dims=[resolution.keys()], kwargs={'mode': 'same'})
+                                        output_core_dims=[resolution.keys()], kwargs={'mode': 'same'}, dask='allowed')
 
     normal = xr.apply_ufunc(fftconvolve, mask, gk, input_core_dims=[resolution.keys(), swap_dims.values()],
-                            vectorize=True, output_core_dims=[resolution.keys()], kwargs={'mode': 'same'})
+                            vectorize=True, output_core_dims=[resolution.keys()], kwargs={'mode': 'same'}, dask='allowed')
 
     low_pass = low_pass / normal
     
     # ------- decimate -------
-    Np = {d:np.rint(output_width[d]/posting[d]).astype(int) for d in output_width.keys()}
+    Np = {d:np.rint(tile_width[d]/posting[d]).astype(int) for d in tile_width.keys()}
     new_line = xr.DataArray(int(low_pass['line'].isel(line=low_pass.sizes['line']//2))+np.arange(-Np['line']//2,Np['line']//2)*posting['line']/spacing['line'].item(), dims='azimuth')
     new_sample = xr.DataArray(int(low_pass['sample'].isel(sample=low_pass.sizes['sample']//2))+np.arange(-Np['sample']//2,Np['sample']//2)*posting['sample']/spacing['sample'].item(), dims='range')
     decimated = low_pass.interp(sample=new_sample, line=new_line, assume_sorted=True).rename('nrcs')
@@ -139,3 +165,21 @@ def new_get_tiles(ds, tiles_index):
 
 
 
+if __name__ == '__main__':
+    import datatree
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file', action="store", help="L1B SLC file path ")
+    args = parser.parse_args()
+    file_path = args.file
+    dt = datatree.open_datatree(file_path)
+    L1B = dt['interburst_xspectra']
+    tiles = get_tiles_from_L1B_SLC(L1B)
+    posting = {'sample':400,'line':400}
+    tile_width = {'sample':17600.,'line':17600.}
+    low_res_tiles = list()
+    for mytile in tiles:
+        mytile.load()
+        incidence = mytile['incidence']
+        spacing = {'sample':mytile['sampleSpacing']/np.sin(np.radians(incidence)), 'line':mytile['lineSpacing']}
+        low_res_tiles.append(compute_low_resolution(mytile, spacing = spacing, posting = posting, tile_width=tile_width))
+    res = xr.combine_by_coords([t.expand_dims(['burst', 'tile_sample', 'tile_line']) for t in low_res_tiles])
