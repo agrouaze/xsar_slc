@@ -2,6 +2,7 @@
 # coding=utf-8
 """
 """
+import logging
 import numpy as np
 import xarray as xr
 from shapely.geometry import Polygon, GeometryCollection
@@ -122,11 +123,14 @@ def netcdf_compliant(dataset):
             # im.encoding['_FillValue'] = 9.9692099683868690e+36
             var_to_add.append({str(i) + '_Re': re, str(i) + '_Im': im})
             var_to_rm.append(str(i))
-    for vv in dataset.variables.keys():
-        if dataset[vv].dtype == 'int64':  # to avoid ncview: netcdf_dim_value: unknown data type (10) for corner_line ...
-            dataset[vv] = dataset[vv].astype(np.int16)
+    ds_to_save = xr.merge([dataset.drop_vars(var_to_rm), *var_to_add], compat='override')
+    for vv in ds_to_save.variables.keys():
+        if ds_to_save[vv].dtype == 'int64':  # to avoid ncview: netcdf_dim_value: unknown data type (10) for corner_line ...
+            ds_to_save[vv] = ds_to_save[vv].astype(np.int16)
+        elif ds_to_save[vv].dtype == 'float64':
+            ds_to_save[vv] = ds_to_save[vv].astype(np.float32) # to reduce volume of output files
         else:
-            dataset[vv] = dataset[vv].astype(np.float32) # to reduce volume of output files
+            logging.info('%s is dtype %s',vv,ds_to_save[vv].dtype)
     # for vv in dataset.variables.keys():
     #     if dataset[vv].dtype == 'float64':
     #         dataset[vv] = dataset[vv].astype(np.float32)
@@ -134,7 +138,7 @@ def netcdf_compliant(dataset):
     # if 'pol' in dataset:
     #     dataset['pol'] = dataset['pol'].astype('S1')
     #     dataset['pol'].encoding['_FillValue'] = ''
-    return xr.merge([dataset.drop_vars(var_to_rm), *var_to_add], compat='override')
+    return ds_to_save
 
 
 def gaussian_kernel(width, spacing, truncate=3.):
