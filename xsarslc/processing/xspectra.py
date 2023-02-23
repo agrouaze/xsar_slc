@@ -150,10 +150,9 @@ def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
         # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
         # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
         xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
-
-
-    dims_to_transpose = [d for d in ['burst', 'tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with interburst
-    return xspectra.transpose(*dims_to_transpose, ...)
+        dims_to_transpose = [d for d in ['burst', 'tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with interburst
+        xspectra = xspectra.transpose(*dims_to_transpose, ...)
+    return xspectra
 
 
 def compute_IW_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 1.5e3},
@@ -209,9 +208,9 @@ def compute_IW_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
         # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
         # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
         xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
-    
-    dims_to_transpose = [d for d in ['burst', 'tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with intraburst
-    return xspectra.transpose(*dims_to_transpose, ...)
+        dims_to_transpose = [d for d in ['burst', 'tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with intraburst
+        xspectra = xspectra.transpose(*dims_to_transpose, ...)
+    return xspectra
 
 def compute_modulation(ds, lowpass_width, spacing):
     """
