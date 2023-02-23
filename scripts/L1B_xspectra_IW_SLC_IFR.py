@@ -22,7 +22,7 @@ from get_RI_file import get_IR_file
 import pdb
 # from yaml import load
 # from yaml import CLoader as Loader
-PRODUCT_VERSION = '1.0' #see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
+PRODUCT_VERSION = '1.2' #see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
 # stream = open(os.path.join(os.path.dirname(__file__), 'configuration_L1B_xspectra_IW_SLC_IFR_v1.yml'), 'r')
 # conf = load(stream, Loader=Loader)  # TODO : add argument to compute_subswath_xspectra(conf=conf)
 DEFAULT_OUPUT_DIR = os.path.join('/home/datawork-cersat-public/project/sarwave/data/products/tests/iw/slc/l1b/',PRODUCT_VERSION)
