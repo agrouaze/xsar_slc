@@ -193,6 +193,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
             xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
                 {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
             cutoff = compute_azimuth_cutoff(xs_cut)
+            cutoff.attrs.update({'long_name':cutoff.attrs['long_name']+' ('+cutoff_tau+')'})
             # ------------- nv ------------
             nv = compute_normalized_variance(mod)
             # ------------- mean sigma0 ------------
