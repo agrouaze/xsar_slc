@@ -138,10 +138,10 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     azitime_interval = burst.attrs['azimuth_time_interval']
     corner_lons = FullResolutionInterpolation(corner_line, corner_sample, 'longitude', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl']).rename(
-        'corner_longitude').drop(['corner_line', 'corner_sample'])
+        'corner_longitude').drop(['c_line', 'c_sample'])
     corner_lats = FullResolutionInterpolation(corner_line, corner_sample, 'latitude', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl']).rename(
-        'corner_latitude').drop(['corner_line', 'corner_sample'])
+        'corner_latitude').drop(['c_line', 'c_sample'])
     corner_incs = FullResolutionInterpolation(corner_line, corner_sample, 'incidenceAngle', geolocation_annotation,
                                               azitime_interval).unstack(dim=['flats', 'flatl'])
     corner_slantTimes = FullResolutionInterpolation(corner_line, corner_sample, 'slantRangeTime',
@@ -163,9 +163,9 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
 
         # ------ checking if we are over water only ------
         if 'landmask' in kwargs:
-            tile_lons = [float(corner_lons.sel(mytile)[{'corner_line': j, 'corner_sample': k}]) for j, k in
+            tile_lons = [float(corner_lons.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
-            tile_lats = [float(corner_lats.sel(mytile)[{'corner_line': j, 'corner_sample': k}]) for j, k in
+            tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
             water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
         else:
