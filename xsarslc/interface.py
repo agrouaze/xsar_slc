@@ -4,7 +4,7 @@
 """
 import numpy as np
 import xarray as xr
-from xsarslc.tools import xtiling, xndindex
+from xsarslc.tools import xndindex
 import warnings
 import xsar
 import argparse
