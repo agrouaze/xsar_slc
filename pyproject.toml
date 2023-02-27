@@ -18,11 +18,11 @@ dependencies = [
 ]
 dynamic = ["version"]
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=64.0", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-#packages = ["xsar_slc.srcipts.L1B_xspectra_IW_SLC_IFR.py"]
+packages = ["xsarslc"]
 
 [tool.setuptools_scm]
 fallback_version = "999"
@@ -32,3 +32,4 @@ profile = "black"
 skip_gitignore = true
 float_to_top = true
 default_section = "THIRDPARTY"
+known_first_party = "xsarslc"
