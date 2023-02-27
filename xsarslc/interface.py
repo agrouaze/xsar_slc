@@ -9,7 +9,7 @@ import warnings
 import xsar
 import argparse
 
-def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sample':400,'line':400}, tile_width = {'sample':17600.,'line':17600.}, **kwargs)
+def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sample':400,'line':400}, tile_width = {'sample':17600.,'line':17600.}, **kwargs):
     """
     compute low resolution nrcs tiles from L1B SLC product
     Args:
@@ -91,18 +91,23 @@ def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None):
     decimated = xr.merge([decimated.to_dataset(),corner_lat.to_dataset(), corner_lon.to_dataset(), range_spacing.to_dataset(), azimuth_spacing.to_dataset()])
     return decimated
 
-def get_tiles_from_L1B_SLC(L1B, polarization='VV'):
+def get_tiles_from_L1B_SLC(L1B, polarization=None):
     """
     Return list of tiles (sigma0) based on L1B informations. Open original SLC file, extract DN and calibrate sigma0
     Args:
         L1B (xarray.dataset): intraburst-like L1B SLC dataset
-        polarization (str, optional) : polarization
+        polarization (str, optional) : polarization. Default is the one found in L1B
     Returns:
         (list): list of tiles with calibrated sigma0
     """
     slc_path = L1B.attrs.get('name')
     tiles_index = get_tiles_index_from_L1B_SLC(L1B)
     dt = xsar.open_datatree(slc_path)
+    if polarization is None:
+        if np.asarray(L1B.pol).size>1:
+            raise ValueError('More than one polarization found in provided L1B. Please choose only one')
+        else:
+            polarization = L1B.pol.item()
     DN = dt['measurement']['digital_number'].sel(pol=polarization)
     sample_spacing = dt['measurement']['sampleSpacing']
     line_spacing = dt['measurement']['lineSpacing']
