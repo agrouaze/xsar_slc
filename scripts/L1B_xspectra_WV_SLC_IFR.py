@@ -56,7 +56,7 @@ def generate_WV_L1Bxspec_product(slc_wv_path,output_filename, polarization=None,
     IR_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
     IR_path = get_IR_file(unit, subswath, polarization.upper(), auxdir=IR_dir)
     xs0 = proc.compute_WV_intraburst_xspectra(dt=dt,
-                                         polarization='VV', periodo_width={"line": 2000, "sample": 2000},
+                                         polarization=polarization, periodo_width={"line": 2000, "sample": 2000},
                                          periodo_overlap={"line": 1000, "sample": 1000},IR_path=IR_path)
     xs = xs0.swap_dims({'freq_line': 'k_az', 'freq_sample': 'k_rg'})
     xs = xspectra.symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az')
@@ -106,7 +106,7 @@ if __name__ == '__main__':
 
     slc_wv_path = args.tiff
     subswath_number = os.path.basename(slc_wv_path).split('-')[1]
-    polarization_from_file = os.path.basename(slc_wv_path).split('-')[3]
+    polarization_from_file = os.path.basename(slc_wv_path).split('-')[3].upper()
     subsath_nickname = '%s_%s' % (subswath_number, polarization_from_file)
     safe_basename = os.path.basename(os.path.dirname(os.path.dirname(slc_wv_path)))
     output_filename = os.path.join(args.outputdir,safe_basename, os.path.basename(
