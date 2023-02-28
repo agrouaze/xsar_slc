@@ -16,4 +16,5 @@ dependencies:
   - sphinxcontrib-programoutput
   - aiohttp
   - holoviews
-  - xsarslc
+  - pip:
+    - -e ../..
