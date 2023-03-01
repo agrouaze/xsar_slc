@@ -1,7 +1,18 @@
 [project]
 name = "xsarslc"
 requires-python = ">= 3.9"
-license = {text = "MIT"}
+
+description = "Python library to compute cross spectra from SAR image"
+readme.file = "README.md"
+readme.content-type = "text/markdown"
+license.text = "GPL-3.0"
+license.file = "LICENSE.md"
+keywords = ["SAR", "wave", "reseach", "cross-spectra"]
+authors = [
+  {name = "Frederic Nouguier"}
+]
+
+
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
