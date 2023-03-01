@@ -1,13 +1,25 @@
-##################################################
-xsarslc: functions to compute cross spectra from TOPS SLC SAR products
-##################################################
+############################################################################
+xsarslc: functions to compute cross spectra from Sentinel-1 SLC SAR products
+############################################################################
 
 **xsarslc** is a library to compute cross spectrum from level 1 SAR SLC products. Objets manipulated are all `xarray`_.
 
-The input `datatree`_ object can come from any reader library but the original design has been done using **`xsar`_**
+Acquisition modes handled by **xsarslc** are IW and WV.
+
+The input `datatree`_ object can come from any reader library but the original design has been done using `xsar`_
 
 
 .. jupyter-execute:: examples/intro.py
+
+
+
+.. image:: oceanspectrumSAR.png
+   :width: 500px
+   :height: 400px
+   :scale: 110 %
+   :alt: real part SAR cross spectrum
+   :align: right
+
 
 
 Documentation
@@ -18,7 +30,8 @@ Overview
 
     **xsarslc** can compute both intra burst and inter (i.e. overlapping bursts) burst cross spectrum.
 
-    To have comparable cross spectrum among bursts and sub-swaths, we choose to have constant `dk` values, it means that the number of pixels used to compute the cross spectrum is not always the same.
+    To have comparable cross spectrum among bursts and sub-swaths, we choose to have constant `dk` values,
+    it means that the number of pixels used to compute the cross spectrum is not always the same.
 
     The algorithm is performing 4 different sub-setting in the original complex digital number images:
 
@@ -32,13 +45,26 @@ Overview
         * 50% overlapping tiles
         * 2-tau saved cross spectrum
 
+
+ATBD
+....
+
+.. note::
+    The Algorithm Technical Baseline Document describes implemented processing steps from Sentinel-1 SLC product to cross spectra
+
+* :doc:`ATBD`
+
 Examples
 ........
 
 .. note::
     here are some examples of usage
 
-* :doc:`examples/xsar`
+* :doc:`examples/xspec_IW_intra_and_inter_burst`
+* :doc:`examples/xspec_WV_example`
+* :doc:`examples/example_IW_compute_and_correct_from_impulse_response`
+* :doc:`examples/example_WV_compute_and_correct_from_impulse_response`
+
 
 Reference
 .........
@@ -61,13 +87,23 @@ Last documentation build: |today|
 
    installing
 
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: Algorithm description
+
+   ATBD
+
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
    :hidden:
    :caption: Examples
 
-   examples/xsar
+   examples/xspec_IW_intra_and_inter_burst
+   examples/xspec_WV_example
+   examples/example_IW_compute_and_correct_from_impulse_response
+   examples/example_WV_compute_and_correct_from_impulse_response
 
 .. toctree::
    :maxdepth: 1
@@ -77,6 +113,7 @@ Last documentation build: |today|
    basic_api
 
 .. _on github: https://github.com/umr-lops/xsar_slc
+.. _xsar: https://github.com/umr-lops/xsar
 .. _xarray: http://xarray.pydata.org
 .. _datatree: https://github.com/xarray-contrib/datatree
 .. _xarray.Dataset: http://xarray.pydata.org/en/stable/generated/xarray.Dataset.html

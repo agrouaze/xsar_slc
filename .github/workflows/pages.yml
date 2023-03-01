@@ -1,0 +1,22 @@
+name: Pages
+on:
+  push:
+    branches:
+    - main
+jobs:
+  pages:
+    runs-on: ubuntu-20.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+      # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+    - id: deployment
+      uses: umr-lops/xsar_slc@main
+      with:
+          documentation_path: .
+          requirements_path: ./requirements_doc.txt
+          cache: true

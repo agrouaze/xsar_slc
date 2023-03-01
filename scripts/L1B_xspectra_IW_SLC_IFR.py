@@ -6,7 +6,7 @@ purpose: produce nc files from SAFE IW SLC containing cartesian x-spec computed 
  on intra and inter bursts
 """
 
-import xsarslc.processing as proc
+import xsarslc.processing.xspectra as proc
 import warnings
 import xsar
 #warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -18,17 +18,14 @@ import os
 import time
 #import xsarslc as xsarslc
 import xsarslc
+from get_RI_file import get_IR_file
 import pdb
 # from yaml import load
 # from yaml import CLoader as Loader
-PRODUCT_VERSION = '0.1'  # version from release 17nov2022 with wavenumbers not aligned
-PRODUCT_VERSION = '0.2'  # version from release 5dec2022 with wavenumbers aligned
-PRODUCT_VERSION = '0.3'  # add fix for freq_sample + subgroups with subswath
-PRODUCT_VERSION = '0.4'  # 12dec22 : only one tiff (one subswath) for one .nc output
-PRODUCT_VERSION = '0.5'  # 14dec22 : integration of functions to avoid loading geoloc fields at high resolution
-PRODUCT_VERSION = '0.6'  # 20dec22 : xsar_slc repo with Nouguier (added landmask, no HR except DN, tau computation, elevation,..)
+PRODUCT_VERSION = '1.2' #see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
 # stream = open(os.path.join(os.path.dirname(__file__), 'configuration_L1B_xspectra_IW_SLC_IFR_v1.yml'), 'r')
 # conf = load(stream, Loader=Loader)  # TODO : add argument to compute_subswath_xspectra(conf=conf)
+DEFAULT_OUPUT_DIR = os.path.join('/home/datawork-cersat-public/project/sarwave/data/products/tests/iw/slc/l1b/',PRODUCT_VERSION)
 def get_memory_usage():
     try:
         import resource
@@ -62,20 +59,42 @@ def generate_IW_L1Bxspec_product(slc_iw_path,output_filename, polarization=None,
     dt = xsarobj.datatree
     dt.load() #took 4min to load and 35Go RAM
     logging.info('datatree loaded %s',get_memory_usage())
-    one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,pol=polarization.upper(),
+    #TODO add the IR_path in the call below
+    #tile_width = {'sample': 20.e2, 'line': 20.e2} # original : 20.e3
+    tile_width = {'sample': 20.e3, 'line': 20.e3}
+    #periodo_width = {'sample': 1800., 'line': 1800.}
+
+    #tile_overlap = {'sample': 10.e2, 'line': 10.e2}
+    tile_overlap = {'sample': 0, 'line': 0}
+    logging.info('tile_width : %s',tile_width)
+    unit = os.path.basename(safe)[0:3]
+    subswath = str_gdal.split(':')[2]
+    IR_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
+    IR_path = get_IR_file(unit, subswath, polarization.upper(), auxdir=IR_dir)
+    if IR_path:
+        one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,pol=polarization.upper(),
                                                                dev=dev,compute_intra_xspec=True,
-                                                               compute_inter_xspec=True)
-    logging.info('xspec intra and inter ready for %s', slc_iw_path)
-    logging.debug('one_subswath_xspectrum = %s', one_subswath_xspectrum_dt)
-    one_subswath_xspectrum_dt.attrs['version_xsar'] = xsar.__version__
-    one_subswath_xspectrum_dt.attrs['version_xsarsea'] = xsarslc.__version__
-    one_subswath_xspectrum_dt.attrs['processor'] = __file__
-    one_subswath_xspectrum_dt.attrs['generation_date'] = datetime.datetime.today().strftime('%Y-%b-%d')
-    if not os.path.exists(os.path.dirname(output_filename)):
-        os.makedirs(os.path.dirname(output_filename),0o0775)
-        logging.info('makedir %s',os.path.dirname(output_filename))
-    one_subswath_xspectrum_dt.to_netcdf(output_filename)
-    logging.info('successfuly written %s', output_filename)
+                                                               compute_inter_xspec=True,tile_width=tile_width,
+                                                               tile_overlap=tile_overlap,IR_path=IR_path)
+    else:
+        one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,pol=polarization.upper(),
+                                                               dev=dev,compute_intra_xspec=True,
+                                                               compute_inter_xspec=True,tile_width=tile_width,
+                                                               tile_overlap=tile_overlap)
+    if one_subswath_xspectrum_dt:
+        logging.info('xspec intra and inter ready for %s', slc_iw_path)
+        logging.debug('one_subswath_xspectrum = %s', one_subswath_xspectrum_dt)
+        one_subswath_xspectrum_dt.attrs['version_xsar'] = xsar.__version__
+        one_subswath_xspectrum_dt.attrs['version_xsarslc'] = xsarslc.__version__
+        one_subswath_xspectrum_dt.attrs['processor'] = __file__
+        one_subswath_xspectrum_dt.attrs['generation_date'] = datetime.datetime.today().strftime('%Y-%b-%d')
+        if not os.path.exists(os.path.dirname(output_filename)):
+            os.makedirs(os.path.dirname(output_filename),0o0775)
+            logging.info('makedir %s',os.path.dirname(output_filename))
+        one_subswath_xspectrum_dt.to_netcdf(output_filename)
+        logging.info('successfuly written %s', output_filename)
+    else:
+        logging.info('no inter nor intra xspectra available in this subswath')
 
 
 if __name__ == '__main__':
@@ -92,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('--tiff', required=True, help='tiff file full path IW SLC')
     parser.add_argument('--subswath', required=False, help='iw1 iw2... [None]', default=None)
     #parser.add_argument('--pol', required=False,choices=['VV','VH','HH','HV'], help='VV HH HV VH [None]', default=None)
-    parser.add_argument('--outputdir', required=True, help='directory where to store output netCDF files')
+    parser.add_argument('--outputdir', required=False, help='directory where to store output netCDF files',default=DEFAULT_OUPUT_DIR)
     parser.add_argument('--dev', action='store_true', default=False,help='dev mode stops the computation early')
     args = parser.parse_args()
     fmt = '%(asctime)s %(levelname)s %(filename)s(%(lineno)d) %(message)s'

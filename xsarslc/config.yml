@@ -1,0 +1,3 @@
+# default data dir for tests and examples
+data_dir: /tmp
+auxfiledir: ../aux_files/

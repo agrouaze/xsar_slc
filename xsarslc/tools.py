@@ -2,6 +2,7 @@
 # coding=utf-8
 """
 """
+import logging
 import numpy as np
 import xarray as xr
 from shapely.geometry import Polygon, GeometryCollection
@@ -61,7 +62,7 @@ def line2geolocline(lines, geolocation_annotation, azimuth_time_interval):
     az_ref2 = aziTime.isel(line=i_ref + 1, sample=0).data
     l_ref2 = geolines.isel(line=i_ref + 1).data
     delta = (az_ref2 - az_ref) / (
-                l_ref2 - l_ref)  # rate of azimuth time variation VS line number in the low resolution geolocation annotation
+            l_ref2 - l_ref)  # rate of azimuth time variation VS line number in the low resolution geolocation annotation
     geoloc_lines = l_ref + (az - az_ref) / delta
     if isinstance(lines, xr.DataArray):
         geoloc_lines = xr.DataArray(geoloc_lines, dims=lines.dims, coords=lines.coords).rename('geolocated_line')
@@ -117,10 +118,27 @@ def netcdf_compliant(dataset):
     for i in dataset.variables.keys():
         if dataset[i].dtype == complex:
             re = dataset[i].real
+            # re.encoding['_FillValue'] = 9.9692099683868690e+36
             im = dataset[i].imag
+            # im.encoding['_FillValue'] = 9.9692099683868690e+36
             var_to_add.append({str(i) + '_Re': re, str(i) + '_Im': im})
             var_to_rm.append(str(i))
-    return xr.merge([dataset.drop_vars(var_to_rm), *var_to_add])
+    ds_to_save = xr.merge([dataset.drop_vars(var_to_rm), *var_to_add], compat='override')
+    for vv in ds_to_save.variables.keys():
+        if ds_to_save[vv].dtype == 'int64':  # to avoid ncview: netcdf_dim_value: unknown data type (10) for corner_line ...
+            ds_to_save[vv] = ds_to_save[vv].astype(np.int16)
+        elif ds_to_save[vv].dtype == 'float64':
+            ds_to_save[vv] = ds_to_save[vv].astype(np.float32) # to reduce volume of output files
+        else:
+            logging.info('%s is dtype %s',vv,ds_to_save[vv].dtype)
+    # for vv in dataset.variables.keys():
+    #     if dataset[vv].dtype == 'float64':
+    #         dataset[vv] = dataset[vv].astype(np.float32)
+    #         dataset[vv].encoding['_FillValue'] = 9.9692099683868690e+36
+    # if 'pol' in dataset:
+    #     dataset['pol'] = dataset['pol'].astype('S1')
+    #     dataset['pol'].encoding['_FillValue'] = ''
+    return ds_to_save
 
 
 def gaussian_kernel(width, spacing, truncate=3.):
@@ -158,14 +176,14 @@ def xndindex(sizes):
 
 def xtiling(ds, nperseg, noverlap=0, centering=False, side='left', prefix='tile_'):
     """
-    Define tiles indexes of an xarray of abritrary shape. Name of returned coordinates are prefix+nperseg keys()
+    Define tiles indexes of an xarray of abritrary shape. Name of returned coordinates are prefix+keys of nperseg
     
     Note1: Coordinates of returned arrays depends on type of ds.
     If ds is an xarray instance, returned coordinates are in ds coordinate referential.
     If ds is a dict of shape, returned coordinates are assumed starting from zero.
     
     Note2 : If nperseg is a dict and contains one value set as None (or zero), a tile dimension is created along the corresponding dimension with nperseg set as
-    the corresponding shape of ds. This is a diferent behaviour than not providing the dimension in nperseg
+    the corresponding shape of ds. This is a different behaviour than not providing the dimension in nperseg
     
    
     Args:
@@ -218,12 +236,16 @@ def xtiling(ds, nperseg, noverlap=0, centering=False, side='left', prefix='tile_
             noverlap[d] = 0
         if sizes[d] < nperseg[d]:
             warnings.warn(
-                "Dimension '{}' ({}) is smaller than required nperseg :{}. nperseg is ajusted accordingly and noverlap forced to zero".format(
+                "Dimension '{}' ({}) is smaller than required nperseg :{}. nperseg is adjusted accordingly and noverlap forced to zero".format(
                     d, sizes[d], nperseg[d]))
             nperseg[d] = sizes[d]
             noverlap[d] = 0
 
     steps = {d: nperseg[d] - noverlap[d] for d in dims}  # step between each tile
+    
+    if np.any([steps[d]<1 for d in dims]):
+        raise ValueError("noverlap can not be equal or larger than nperseg")
+
     indices = {d: np.arange(0, sizes[d] - nperseg[d] + 1, steps[d]) for d in dims}  # index of first point of each tile
 
     # For centering option:
@@ -256,27 +278,104 @@ def xtiling(ds, nperseg, noverlap=0, centering=False, side='left', prefix='tile_
 
 def get_corner_tile(tiles):
     """
-    Extract corner indexes of tiles
+    Extract corner indexes of tiles.. Returns an index, not the coordinate !
     Args:
-        tiles (dict of xarray) : xtiling()
+        tiles (dict of xarray) : xtiling() output or {key:value} with values being DataArray of slices
     Return:
         (dict of xarray): same keys as tiles, values ares corners indexes only
     """
+    # function below if used if tiles contains list of slices instead of index values
+    slice_bound_indexes = lambda slices: np.array([[s.start, s.stop-1] for s in slices])
+    
     corners = dict()
     for d, v in tiles.items():
-        corners[d] = v[{'__' + d: [0, -1]}].rename({'__' + d: 'corner_' + d})
+        if v.dtype!=int:
+            corners[d] = xr.apply_ufunc(slice_bound_indexes, v, input_core_dims=[['tile_'+d]],output_core_dims=[['tile_'+d,'c_'+d]])
+        else:
+            corners[d] = v[{'__' + d: [0, -1]}].rename({'__' + d: 'c_' + d})
     return corners
-
 
 def get_middle_tile(tiles):
     """
-    Extract middle indexes of tiles
+    Extract middle indexes of tiles. Returns an index, not the coordinate !
     Args:
-        tiles (dict of xarray) : xtiling()
+        tiles (dict of xarray) : xtiling() output or {key:value} with values being DataArray of slices
     Return:
         (dict of xarray): same keys as tiles, values ares middle indexes
     """
+    # function below if used if tiles contains list of slices instead of index values
+    slice_middle_indexes = lambda slices:np.array([(s.stop+s.start)//2 for s in slices])
+    
     middle = dict()
     for d, v in tiles.items():
-        middle[d] = v[{'__' + d: v.sizes['__' + d] // 2}]
+        if v.dtype!=int:
+            middle[d] = xr.apply_ufunc(slice_middle_indexes, v, input_core_dims=[['tile_'+d]],output_core_dims=[['tile_'+d]])
+        else:
+            middle[d] = v[{'__' + d: v.sizes['__' + d] // 2}]
     return middle
+
+def get_tiles(ds, tiles_index):
+    """
+    Returns the list of all tiles taken over tiles_index. tiles_index could be providing using xtiling (uniform tiling) or be custom using slices instead of integers.
+    Args:
+        ds (xarray.dataset/xarray.DataArray)
+        tiles_index (dict): keys are dimensions of ds to be indexeded. Values are xarray.DataArray containing indexes or slices
+    Returns
+        (list) : a list of all tiles
+    
+    """
+    uniform_tiles_index = {}
+    non_uniform_tiles_index = {}
+    for d,v in tiles_index.items():
+        if v.dtype!=int:
+            non_uniform_tiles_index.update({d:v})
+        else:
+            uniform_tiles_index.update({d:v})    
+    
+    uds = ds[uniform_tiles_index] # taking tiles over all uniform dimensions
+    
+    uniform_tile_sizes = dict() # sizes of uniform tile dimensions
+    for d,k in uniform_tiles_index.items():
+        uniform_tile_sizes.update({b:j for b,j in k.sizes.items() if 'tile_' in b})
+    
+    if non_uniform_tiles_index: # taking all the tiles over all non-uniform dimensions
+        uds = {'tile_'+d:[uds[{d:v[s].item()}].assign_coords({td:v[td][{td:tv}].item() for td,tv in s.items()}).swap_dims({d:'__'+d}) for s in xndindex(v.sizes)] for d,v in non_uniform_tiles_index.items()}
+    
+    # concatenation of all possible tiles
+    all_tiles_list = list()
+    if non_uniform_tiles_index:
+        for heterogen_dim, tile_list in uds.items():
+            for ts in tile_list:
+                all_tiles_list = all_tiles_list+[ts[i] for i in xndindex(uniform_tile_sizes)]
+    else:
+        all_tiles_list = [uds[i] for i in xndindex(uniform_tile_sizes)]
+        
+    return all_tiles_list
+
+
+# def get_corner_tile(tiles):
+#     """
+#     Extract corner indexes of tiles
+#     Args:
+#         tiles (dict of xarray) : xtiling()
+#     Return:
+#         (dict of xarray): same keys as tiles, values ares corners indexes only
+#     """
+#     corners = dict()
+#     for d, v in tiles.items():
+#         corners[d] = v[{'__' + d: [0, -1]}].rename({'__' + d: 'corner_' + d})
+#     return corners
+
+
+# def get_middle_tile(tiles):
+#     """
+#     Extract middle indexes of tiles
+#     Args:
+#         tiles (dict of xarray) : xtiling()
+#     Return:
+#         (dict of xarray): same keys as tiles, values ares middle indexes
+#     """
+#     middle = dict()
+#     for d, v in tiles.items():
+#         middle[d] = v[{'__' + d: v.sizes['__' + d] // 2}]
+#     return middle
