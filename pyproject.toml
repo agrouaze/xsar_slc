@@ -1,7 +1,6 @@
 [project]
 name = "xsarslc"
 requires-python = ">= 3.9"
-
 description = "Python library to compute cross spectra from SAR image"
 readme.file = "README.md"
 readme.content-type = "text/markdown"
@@ -11,8 +10,6 @@ keywords = ["SAR", "wave", "reseach", "cross-spectra"]
 authors = [
   {name = "Frederic Nouguier"}
 ]
-
-
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
@@ -28,6 +25,7 @@ dependencies = [
     'tqdm'
 ]
 dynamic = ["version"]
+
 [build-system]
 requires = ["setuptools>=64.0", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
