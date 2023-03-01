@@ -24,7 +24,7 @@ def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sam
     """
     import datatree
     dt = datatree.open_datatree(file_path)
-    L1B = dt[xspectra+'burst_xspectra']
+    L1B = dt[xspectra+'burst_xspectra'].ds
     tiles = get_tiles_from_L1B_SLC(L1B)
     low_res_tiles = list()
     for mytile in tiles:
@@ -33,6 +33,10 @@ def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sam
         spacing = {'sample':mytile['sampleSpacing']/np.sin(np.radians(incidence)), 'line':mytile['lineSpacing']}
         low_res_tiles.append(compute_low_res_tiles(mytile, spacing = spacing, posting = posting, tile_width=tile_width), **kwargs)
     res = xr.combine_by_coords([t.expand_dims(['burst', 'tile_sample', 'tile_line']) for t in low_res_tiles])
+    attrs = L1B.attrs.copy()
+    attr_to_rm = ['comment','azimuth_time_interval','periodo_width_sample','periodo_width_line','periodo_overlap_sample','periodo_overlap_line']
+    [attrs.pop(k,None) for k in attr_to_rm]
+    res.attrs.update(attrs)
     return res
 
 def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None):
