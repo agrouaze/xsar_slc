@@ -72,12 +72,12 @@ def generate_IW_L1Bxspec_product(slc_iw_path,output_filename, polarization=None,
     IR_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
     IR_path = get_IR_file(unit, subswath, polarization.upper(), auxdir=IR_dir)
     if IR_path:
-        one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,pol=polarization.upper(),
+        one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,polarization=polarization.upper(),
                                                                dev=dev,compute_intra_xspec=True,
                                                                compute_inter_xspec=True,tile_width=tile_width,
                                                                tile_overlap=tile_overlap,IR_path=IR_path)
     else:
-        one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,pol=polarization.upper(),
+        one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,polarization=polarization.upper(),
                                                                dev=dev,compute_intra_xspec=True,
                                                                compute_inter_xspec=True,tile_width=tile_width,
                                                                tile_overlap=tile_overlap)
