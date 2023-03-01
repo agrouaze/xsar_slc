@@ -14,7 +14,7 @@ import cartopy
 cartopy.config['pre_existing_data_dir'] = '/home1/datahome/agrouaze/.local/share/cartopy'
 
 
-def compute_subswath_xspectra(dt, **kwargs):
+def compute_subswath_xspectra(dt, polarization, **kwargs):
     """
     Main function to compute IW inter and intra burst spectra. It has to be modified to be able to change Xspectra options
     Keyword Args:
@@ -26,7 +26,7 @@ def compute_subswath_xspectra(dt, **kwargs):
 
     #landmask = kwargs.pop('landmask', cartopy.feature.NaturalEarthFeature('physical', 'land', '10m'))
     kwargs['landmask'] = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
-    intra_xs = compute_IW_subswath_intraburst_xspectra(dt, **kwargs)
+    intra_xs = compute_IW_subswath_intraburst_xspectra(dt, polarization=polarization, **kwargs)
     if 'spatial_ref' in intra_xs:
         intra_xs = intra_xs.drop('spatial_ref')
         #intra_xs.attrs.update({'start_date': str(intra_xs.start_date)})
@@ -38,7 +38,7 @@ def compute_subswath_xspectra(dt, **kwargs):
             #intra_xs.attrs.pop('pixel_line_m')
             #intra_xs.attrs.pop('pixel_sample_m')
 
-    inter_xs = compute_IW_subswath_interburst_xspectra(dt, **kwargs)
+    inter_xs = compute_IW_subswath_interburst_xspectra(dt, polarization=polarization, **kwargs)
     if 'spatial_ref' in inter_xs:
         inter_xs = inter_xs.drop('spatial_ref')
     if isinstance(inter_xs, xr.Dataset):
@@ -61,7 +61,7 @@ def compute_subswath_xspectra(dt, **kwargs):
     return dt
 
 
-def compute_WV_intraburst_xspectra(dt, tile_width=None, tile_overlap=None, polarization='VV', **kwargs):
+def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overlap=None, **kwargs):
     """
     Main function to compute WV xspectra (tiling is available)
     Note: If requested tile is larger than the size of availabe data (or set to None). tile will be set to maximum available size
@@ -90,15 +90,15 @@ def compute_WV_intraburst_xspectra(dt, tile_width=None, tile_overlap=None, polar
     burst = dt['measurement'].ds.sel(pol=polarization)
     burst.load()
     burst.attrs.update(commons)
-    xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'], tile_width, tile_overlap, **kwargs)
+    xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'], dt['noise_range'], dt['noise_azimuth'], tile_width, tile_overlap, **kwargs)
     xspectra = xspectra.drop(['tile_line', 'tile_sample']) # dropping coordinate is important to not artificially multiply the dimensions
     if xspectra.sizes['tile_line']==xspectra.sizes['tile_sample']==1: # In WV mode, it will probably be only one tile
         xspectra = xspectra.squeeze(['tile_line', 'tile_sample'])
     dims_to_transpose = [d for d in ['tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with intraburst
     return xspectra
 
-def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 20.e3},
-                                         tile_overlap={'sample': 10.e3, 'line': 10.e3}, polarization='VV', **kwargs):
+def compute_IW_subswath_intraburst_xspectra(dt, polarization, tile_width={'sample': 20.e3, 'line': 20.e3},
+                                         tile_overlap={'sample': 10.e3, 'line': 10.e3}, **kwargs):
     """
     Compute IW subswath intra-burst xspectra per tile
     Note: If requested tile is larger than the size of availabe data. tile will be set to maximum available size
@@ -138,7 +138,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
         burst.load()
         burst.attrs.update(commons)
-        burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'], tile_width,tile_overlap, **kwargs)
+        burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'], dt['noise_range'], dt['noise_azimuth'], tile_width,tile_overlap, **kwargs)
         if burst_xspectra:
             xspectra.append(burst_xspectra.drop(['tile_line', 'tile_sample'])) # dropping coordinate is important to not artificially multiply the dimensions
 
@@ -155,8 +155,8 @@ def compute_IW_subswath_intraburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
     return xspectra
 
 
-def compute_IW_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'line': 1.5e3},
-                                         tile_overlap={'sample': 10.e3, 'line': 0.75e3}, polarization='VV', **kwargs):
+def compute_IW_subswath_interburst_xspectra(dt, polarization, tile_width={'sample': 20.e3, 'line': 1.5e3},
+                                         tile_overlap={'sample': 10.e3, 'line': 0.75e3}, **kwargs):
     """
     Compute IW subswath inter-burst xspectra. No deramping is applied since only magnitude is used.
     
@@ -195,7 +195,7 @@ def compute_IW_subswath_interburst_xspectra(dt, tile_width={'sample': 20.e3, 'li
                             merge_burst_annotation=True).sel(pol=polarization)
         burst0.attrs.update(commons)
         burst1.attrs.update(commons)
-        interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], dt['calibration'], tile_width,
+        interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], dt['calibration'], dt['noise_range'], dt['noise_azimuth'], tile_width,
                                                               tile_overlap, **kwargs)
         if interburst_xspectra:
             xspectra.append(interburst_xspectra.drop(['tile_line', 'tile_sample']))
@@ -297,7 +297,7 @@ def compute_normalized_variance(modulation):
     nv.attrs.update({'long_name': 'normalized variance', 'units': ''})
     return nv
 
-def compute_mean_sigma0(DN, sigma0_lut):
+def compute_mean_sigma0(DN, sigma0_lut, range_noise_lut, azimuth_noise_lut):
     """
     compute mean calibrated sigma0
     Args:
@@ -306,7 +306,12 @@ def compute_mean_sigma0(DN, sigma0_lut):
     Return:
         (xarray): calibrated mean sigma0 (single value)
     """
-    sigma0 = np.abs(DN)**2/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)
+    polarization = DN.pol.item()
+    sigma0_lut = sigma0_lut.sel(pol=polarization)
+    range_noise_lut = range_noise_lut.sel(pol=polarization)
+    azimuth_noise_lut = azimuth_noise_lut.sel(pol=polarization)
+    noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True))*(range_noise_lut.interp_like(DN, assume_sorted=True))
+    sigma0 = (np.abs(DN)**2-noise)/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)
     sigma0 = sigma0.mean(dim=['line','sample']).rename('sigma0')
     sigma0.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
     return sigma0

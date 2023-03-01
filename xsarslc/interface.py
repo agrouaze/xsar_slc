@@ -9,7 +9,7 @@ import warnings
 import xsar
 import argparse
 
-def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sample':400,'line':400}, tile_width = {'sample':17600.,'line':17600.}, **kwargs)
+def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sample':400,'line':400}, tile_width = {'sample':17600.,'line':17600.}, **kwargs):
     """
     compute low resolution nrcs tiles from L1B SLC product
     Args:
@@ -24,15 +24,22 @@ def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sam
     """
     import datatree
     dt = datatree.open_datatree(file_path)
-    L1B = dt[xspectra+'burst_xspectra']
+    L1B = dt[xspectra+'burst_xspectra'].ds
     tiles = get_tiles_from_L1B_SLC(L1B)
     low_res_tiles = list()
     for mytile in tiles:
         mytile.load()
         incidence = mytile['incidence']
         spacing = {'sample':mytile['sampleSpacing']/np.sin(np.radians(incidence)), 'line':mytile['lineSpacing']}
+        # print(float(spacing['sample']), float(mytile['sampleSpacing']), float(incidence))
+        # if np.isnan(float(spacing['sample'])):
+            # return mytile
         low_res_tiles.append(compute_low_res_tiles(mytile, spacing = spacing, posting = posting, tile_width=tile_width), **kwargs)
     res = xr.combine_by_coords([t.expand_dims(['burst', 'tile_sample', 'tile_line']) for t in low_res_tiles])
+    attrs = L1B.attrs.copy()
+    attr_to_rm = ['comment','azimuth_time_interval','periodo_width_sample','periodo_width_line','periodo_overlap_sample','periodo_overlap_line']
+    [attrs.pop(k,None) for k in attr_to_rm]
+    res.attrs.update(attrs)
     return res
 
 def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None):
@@ -91,26 +98,35 @@ def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None):
     decimated = xr.merge([decimated.to_dataset(),corner_lat.to_dataset(), corner_lon.to_dataset(), range_spacing.to_dataset(), azimuth_spacing.to_dataset()])
     return decimated
 
-def get_tiles_from_L1B_SLC(L1B, polarization='VV'):
+def get_tiles_from_L1B_SLC(L1B, polarization=None):
     """
     Return list of tiles (sigma0) based on L1B informations. Open original SLC file, extract DN and calibrate sigma0
     Args:
         L1B (xarray.dataset): intraburst-like L1B SLC dataset
-        polarization (str, optional) : polarization
+        polarization (str, optional) : polarization. Default is the one found in L1B
     Returns:
         (list): list of tiles with calibrated sigma0
     """
     slc_path = L1B.attrs.get('name')
     tiles_index = get_tiles_index_from_L1B_SLC(L1B)
     dt = xsar.open_datatree(slc_path)
+    if polarization is None:
+        if np.asarray(L1B.pol).size>1:
+            raise ValueError('More than one polarization found in provided L1B. Please choose only one')
+        else:
+            polarization = L1B.pol.item()
     DN = dt['measurement']['digital_number'].sel(pol=polarization)
+    sigma0_lut = dt['calibration']['sigma0_lut'].sel(pol=polarization)
+    range_noise_lut = dt['noise_range'].ds['noise_lut'].sel(pol=polarization)
+    azimuth_noise_lut = dt['noise_azimuth'].ds['noise_lut'].sel(pol=polarization)
     sample_spacing = dt['measurement']['sampleSpacing']
     line_spacing = dt['measurement']['lineSpacing']
     DN_tiles = new_get_tiles(DN, tiles_index)
-    sigma0_lut = dt['calibration']['sigma0_lut']
+    
+    noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True))*(range_noise_lut.interp_like(DN, assume_sorted=True))
     nrcs = list()
     for DN in DN_tiles:
-        calibrated_DN = (np.abs(DN)**2/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)).rename('nrcs')
+        calibrated_DN = ((np.abs(DN)**2-noise)/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)).rename('nrcs')
         calibrated_DN.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
         tile_coords = {'burst':calibrated_DN['burst'], 'tile_line':calibrated_DN['tile_line'], 'tile_sample':calibrated_DN['tile_sample']}
         calibrated_DN = calibrated_DN.assign_coords({'longitude':L1B['longitude'][tile_coords].item(),'latitude':L1B['latitude'][tile_coords].item()})

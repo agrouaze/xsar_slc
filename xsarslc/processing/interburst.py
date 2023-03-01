@@ -9,7 +9,7 @@ from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 
 
-def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, calibration, tile_width, tile_overlap,
+def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, calibration, noise_range, noise_azimuth, tile_width, tile_overlap,
                                     lowpass_width={'sample': 1000., 'line': 1000.},
                                     periodo_width={'sample': 2000., 'line': 1200.}, #2000 1200 en 20km# 1800 1200 en 2km
                                     periodo_overlap={'sample': 1000., 'line': 600.}, **kwargs):
@@ -222,7 +222,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
             # ------------- nv ------------
             nv = compute_normalized_variance(mod0)
             # ------------- mean sigma0 ------------
-            sigma0 = compute_mean_sigma0(sub0['digital_number'], calibration['sigma0_lut'])
+            sigma0 = compute_mean_sigma0(sub0['digital_number'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
             # ------------- mean incidence ------------
             mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
             # ------------- concatenate all variables ------------

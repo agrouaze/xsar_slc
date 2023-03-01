@@ -10,7 +10,7 @@ from xsarslc.tools import xtiling, xndindex
 import warnings
 from tqdm import tqdm
 
-def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, tile_width, tile_overlap,
+def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, noise_range, noise_azimuth, tile_width, tile_overlap,
                            lowpass_width={'sample': 1000., 'line': 1000.},
                            periodo_width={'sample': 4000., 'line': 4000.}, #4000 en 20km # 1800 en 2km tiles
                            periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs): # half width
@@ -192,10 +192,11 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, ti
             xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
                 {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
             cutoff = compute_azimuth_cutoff(xs_cut)
+            cutoff.attrs.update({'long_name':cutoff.attrs['long_name']+' ('+cutoff_tau+')'})
             # ------------- nv ------------
             nv = compute_normalized_variance(mod)
             # ------------- mean sigma0 ------------
-            sigma0 = compute_mean_sigma0(DN, calibration['sigma0_lut'])
+            sigma0 = compute_mean_sigma0(DN, calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
             # ------------- mean incidence ------------
             mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
             # ------------- concatenate all variables ------------
