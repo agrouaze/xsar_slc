@@ -25,7 +25,7 @@ jobs:
           twine check dist/*
           pip install dist/*.whl
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@main
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.pypi_token }}
           repository_url: https://upload.pypi.org/legacy/
