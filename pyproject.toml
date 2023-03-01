@@ -1,7 +1,15 @@
 [project]
 name = "xsarslc"
 requires-python = ">= 3.9"
-license = {text = "MIT"}
+description = "Python library to compute cross spectra from SAR image"
+readme.file = "README.md"
+readme.content-type = "text/markdown"
+#license.text = "GPL-3.0"
+license = {text = "GPL-3.0"}
+keywords = ["SAR", "wave", "reseach", "cross-spectra"]
+authors = [
+  {name = "Frederic Nouguier"}
+]
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
@@ -17,12 +25,13 @@ dependencies = [
     'tqdm'
 ]
 dynamic = ["version"]
+
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=64.0", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-#packages = ["xsar_slc.srcipts.L1B_xspectra_IW_SLC_IFR.py"]
+packages = ["xsarslc"]
 
 [tool.setuptools_scm]
 fallback_version = "999"
@@ -32,3 +41,4 @@ profile = "black"
 skip_gitignore = true
 float_to_top = true
 default_section = "THIRDPARTY"
+known_first_party = "xsarslc"
