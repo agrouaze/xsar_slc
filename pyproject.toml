@@ -4,8 +4,8 @@ requires-python = ">= 3.9"
 description = "Python library to compute cross spectra from SAR image"
 readme.file = "README.md"
 readme.content-type = "text/markdown"
-license.text = "GPL-3.0"
-license.file = "LICENSE.md"
+#license.text = "GPL-3.0"
+license = {text = "GPL-3.0"}
 keywords = ["SAR", "wave", "reseach", "cross-spectra"]
 authors = [
   {name = "Frederic Nouguier"}
