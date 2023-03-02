@@ -9,9 +9,7 @@ from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 import warnings
 
-import cartopy
-# TODO : fix this hard coded path
-cartopy.config['pre_existing_data_dir'] = '/home1/datahome/agrouaze/.local/share/cartopy'
+
 
 
 def compute_subswath_xspectra(dt, polarization, **kwargs):
@@ -21,11 +19,8 @@ def compute_subswath_xspectra(dt, polarization, **kwargs):
         kwargs (dict): keyword arguments passed to called functions. landmask, ...
     """
     import datatree
-    import cartopy
     from xsarslc.tools import netcdf_compliant
 
-    #landmask = kwargs.pop('landmask', cartopy.feature.NaturalEarthFeature('physical', 'land', '10m'))
-    kwargs['landmask'] = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
     intra_xs = compute_IW_subswath_intraburst_xspectra(dt, polarization=polarization, **kwargs)
     if 'spatial_ref' in intra_xs:
         intra_xs = intra_xs.drop('spatial_ref')
