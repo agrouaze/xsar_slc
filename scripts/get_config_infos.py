@@ -29,6 +29,17 @@ def get_IR_file(unit, subswath, polarization, auxdir=conf['auxfiledir']):
         logging.warning('RI file %s cannot be found', pathaux)
         return None
 
+def get_production_version(auxdir=conf):
+    """
+
+    :param auxdir: str paht of the config file
+    :return:
+         pv (str): product version (e.g. "1.4")
+    """
+    pv = auxdir['product_version']
+    return pv
+
+
 if __name__ == '__main__':
     get_IR_file(unit='S1A', subswath='WV2', polarization='VV', auxdir=conf['auxfiledir'])
     out_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
