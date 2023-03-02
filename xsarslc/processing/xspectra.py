@@ -127,8 +127,8 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, tile_width={'sampl
     dev = kwargs.get('dev', False)
 
     if dev:
-        logging.info('reduce number of burst -> 2')
-        nb_burst = 2
+        logging.info('reduce number of burst -> 1')
+        nb_burst = 1
 
     for b in range(nb_burst):
         burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
