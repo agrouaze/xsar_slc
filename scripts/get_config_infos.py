@@ -32,12 +32,22 @@ def get_IR_file(unit, subswath, polarization, auxdir=conf['auxfiledir']):
 def get_production_version(auxdir=conf):
     """
 
-    :param auxdir: str paht of the config file
+    :param auxdir: str path of the config file
     :return:
          pv (str): product version (e.g. "1.4")
     """
-    pv = auxdir['product_version']
+    pv = str(auxdir['product_version'])
     return pv
+
+def get_default_outputdir(auxdir=conf):
+    """
+
+    :param auxdir: str path of the config file
+    :return:
+         do (str): path of the outputdir where to store L1B files
+    """
+    do = auxdir['default_outputdir']
+    return do
 
 
 if __name__ == '__main__':
