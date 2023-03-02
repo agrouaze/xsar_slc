@@ -137,11 +137,14 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
 
         # ------ checking if we are over water only ------
         if 'landmask' in kwargs:
-            tile_lons = [float(corner_lons.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
-                         [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
-            tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
-                         [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
-            water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
+            if kwargs['landmask'] is not None:
+                tile_lons = [float(corner_lons.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
+                             [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
+                tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
+                             [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
+                water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
+            else:
+                water_only = True
         else:
             water_only = True
         logging.debug('water_only : %s', water_only)
