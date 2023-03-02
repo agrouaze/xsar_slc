@@ -130,6 +130,11 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
     # combinaison_selection_tiles = [yy for yy in xndindex(tiles_sizes)]
     combinaison_selection_tiles = all_tiles
     pbar = tqdm(range(len(all_tiles)), desc='start')
+    if kwargs.get('dev', None):
+        logging.info('dev mode : reduce number of tile in the burst to 2')
+        pbar = tqdm(range(2), desc='start')
+    else:
+        pbar = tqdm(range(len(all_tiles)), desc='start')
     for ii in pbar:
         pbar.set_description('loop on %s/%s tiles' % (ii+1,len(combinaison_selection_tiles)))
         sub = all_tiles[ii].swap_dims({'__line':'line', '__sample':'sample'})
