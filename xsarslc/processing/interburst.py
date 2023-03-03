@@ -162,15 +162,12 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         mytile = {'tile_sample':sub0['tile_sample'], 'tile_line':sub0['tile_line']}
 
         # ------ checking if we are over water only ------
-        if 'landmask' in kwargs:
-            if kwargs['landmask'] is not None:
-                tile_lons = [float(corner_lons.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
-                             [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
-                tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
-                             [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
-                water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
-            else:
-                water_only = True
+        if kwargs.get('landmask', None):
+            tile_lons = [float(corner_lons.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
+                         [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
+            tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
+                         [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
+            water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
         else:
             water_only = True
         logging.debug('water_only :  %s', water_only)
