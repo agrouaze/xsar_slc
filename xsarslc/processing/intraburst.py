@@ -130,13 +130,18 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
     # combinaison_selection_tiles = [yy for yy in xndindex(tiles_sizes)]
     combinaison_selection_tiles = all_tiles
     pbar = tqdm(range(len(all_tiles)), desc='start')
+    if kwargs.get('dev', None):
+        logging.info('dev mode : reduce number of tile in the burst to 2')
+        pbar = tqdm(range(2), desc='start')
+    else:
+        pbar = tqdm(range(len(all_tiles)), desc='start')
     for ii in pbar:
         pbar.set_description('loop on %s/%s tiles' % (ii+1,len(combinaison_selection_tiles)))
         sub = all_tiles[ii].swap_dims({'__line':'line', '__sample':'sample'})
         mytile = {'tile_sample':sub['tile_sample'], 'tile_line':sub['tile_line']}
 
         # ------ checking if we are over water only ------
-        if 'landmask' in kwargs:
+        if kwargs.get('landmask', None):
             tile_lons = [float(corner_lons.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
             tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
