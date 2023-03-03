@@ -30,11 +30,9 @@ def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sam
     for mytile in tiles:
         mytile.load()
         incidence = mytile['incidence']
-        spacing = {'sample':mytile['sampleSpacing']/np.sin(np.radians(incidence)), 'line':mytile['lineSpacing']}
-        # print(float(spacing['sample']), float(mytile['sampleSpacing']), float(incidence))
-        # if np.isnan(float(spacing['sample'])):
-            # return mytile
-        low_res_tiles.append(compute_low_res_tiles(mytile, spacing = spacing, posting = posting, tile_width=tile_width), **kwargs)
+        if not np.isnan(incidence): # incidence is set at "Nan" when no data available in tile (ex: not on waters)
+            spacing = {'sample':mytile['sampleSpacing']/np.sin(np.radians(incidence)), 'line':mytile['lineSpacing']}
+            low_res_tiles.append(compute_low_res_tiles(mytile, spacing = spacing, posting = posting, tile_width=tile_width), **kwargs)
     res = xr.combine_by_coords([t.expand_dims(['burst', 'tile_sample', 'tile_line']) for t in low_res_tiles])
     attrs = L1B.attrs.copy()
     attr_to_rm = ['comment','azimuth_time_interval','periodo_width_sample','periodo_width_line','periodo_overlap_sample','periodo_overlap_line']
@@ -129,10 +127,10 @@ def get_tiles_from_L1B_SLC(L1B, polarization=None):
         calibrated_DN = ((np.abs(DN)**2-noise)/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)).rename('nrcs')
         calibrated_DN.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
         tile_coords = {'burst':calibrated_DN['burst'], 'tile_line':calibrated_DN['tile_line'], 'tile_sample':calibrated_DN['tile_sample']}
-        calibrated_DN = calibrated_DN.assign_coords({'longitude':L1B['longitude'][tile_coords].item(),'latitude':L1B['latitude'][tile_coords].item()})
-        added_variables = [L1B[v][tile_coords].to_dataset() for v in ['incidence','corner_longitude', 'corner_latitude']]
+        calibrated_DN = calibrated_DN.assign_coords({'longitude':L1B['longitude'].sel(tile_coords).item(),'latitude':L1B['latitude'].sel(tile_coords).item()})
+        added_variables = [L1B[v].sel(tile_coords).to_dataset() for v in ['incidence','corner_longitude', 'corner_latitude']]
         calibrated_DN = xr.merge([calibrated_DN,*added_variables, sample_spacing.to_dataset(), line_spacing.to_dataset()])
-        calibrated_DN = calibrated_DN.assign_coords({'c_sample':L1B[tile_coords]['corner_sample'].data, 'c_line':L1B[tile_coords]['corner_line'].data})
+        calibrated_DN = calibrated_DN.assign_coords({'c_sample':L1B.sel(tile_coords)['corner_sample'].data, 'c_line':L1B.sel(tile_coords)['corner_line'].data})
         nrcs.append(calibrated_DN)
     return nrcs
 
@@ -175,7 +173,7 @@ def new_get_tiles(ds, tiles_index):
         indexer = dict()
         for dim_index in tiles_index.keys():
             rd = {k:v for k,v in r.items() if k in tiles_index[dim_index].dims}
-            indexer.update({dim_index:tiles_index[dim_index][rd].item()})
+            indexer.update({dim_index:tiles_index[dim_index].sel(rd).item()})
         tiles_list.append(ds[indexer].assign_coords(r))
     return tiles_list
 

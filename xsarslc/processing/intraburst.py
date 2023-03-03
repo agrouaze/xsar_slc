@@ -300,9 +300,9 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
                         dims='freq_' + azimuth_dim, name='k_az',
                         attrs={'long_name': 'wavenumber in azimuth direction', 'units': 'rad/m'})
     
-    with xr.set_options(keep_attrs=True): # centroid has been evaluated on freq_line. It has to be converted on azimuth dimension
-        out['centroid'] = out['centroid']*(2.*np.pi/azimuth_spacing)
-        out['centroid'].attrs.update({'units':'rad/m'})
+    with xr.set_options(keep_attrs=True): # doppler_centroid has been evaluated on freq_line. It has to be converted on azimuth dimension
+        out['doppler_centroid'] = out['doppler_centroid']*(2.*np.pi/azimuth_spacing)
+        out['doppler_centroid'].attrs.update({'units':'rad/m'})
     out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az})
     out.attrs.update({'periodogram_nperseg_' + range_dim: nperseg[range_dim],
                       'periodogram_nperseg_' + azimuth_dim: nperseg[azimuth_dim],
@@ -421,6 +421,6 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
         merged_xspecs.append(concat_spec.to_dataset())  # adding to_dataset() ensures promote_attrs=False per default
 
     merged_xspecs = xr.merge(merged_xspecs, combine_attrs='drop_conflicts')
-    merged_xspecs = merged_xspecs.merge(xr.DataArray(centroid, name='centroid', attrs={'long_name':'Doppler centroid', 'units':''}).to_dataset())
+    merged_xspecs = merged_xspecs.merge(xr.DataArray(centroid, name='doppler_centroid', attrs={'long_name':'Doppler centroid', 'units':''}).to_dataset())
     merged_xspecs.attrs.update({'look_width': look_width, 'tau': tau})
     return merged_xspecs

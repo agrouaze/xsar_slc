@@ -47,9 +47,9 @@ def compute_subswath_xspectra(dt, polarization, **kwargs):
     else:
         dt_dict = {}
         if inter_xs:
-            dt_dict.update({'interburst_xspectra': netcdf_compliant(inter_xs)})
+            dt_dict.update({'interburst': netcdf_compliant(inter_xs)})
         if intra_xs:
-            dt_dict.update({'intraburst_xspectra': netcdf_compliant(intra_xs)})
+            dt_dict.update({'intraburst': netcdf_compliant(intra_xs)})
         dt = datatree.DataTree.from_dict(dt_dict)
     return dt
 
