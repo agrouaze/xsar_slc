@@ -9,10 +9,6 @@ from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 import warnings
 
-import cartopy
-# TODO : fix this hard coded path
-cartopy.config['pre_existing_data_dir'] = '/home1/datahome/agrouaze/.local/share/cartopy'
-
 
 def compute_subswath_xspectra(dt, polarization, **kwargs):
     """
@@ -21,22 +17,19 @@ def compute_subswath_xspectra(dt, polarization, **kwargs):
         kwargs (dict): keyword arguments passed to called functions. landmask, ...
     """
     import datatree
-    import cartopy
     from xsarslc.tools import netcdf_compliant
 
-    #landmask = kwargs.pop('landmask', cartopy.feature.NaturalEarthFeature('physical', 'land', '10m'))
-    kwargs['landmask'] = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
     intra_xs = compute_IW_subswath_intraburst_xspectra(dt, polarization=polarization, **kwargs)
     if 'spatial_ref' in intra_xs:
         intra_xs = intra_xs.drop('spatial_ref')
-        #intra_xs.attrs.update({'start_date': str(intra_xs.start_date)})
-        #intra_xs.attrs.update({'stop_date': str(intra_xs.stop_date)})
-    if isinstance(intra_xs,xr.Dataset):
+        # intra_xs.attrs.update({'start_date': str(intra_xs.start_date)})
+        # intra_xs.attrs.update({'stop_date': str(intra_xs.stop_date)})
+    if isinstance(intra_xs, xr.Dataset):
         intra_xs.attrs.update({'footprint': str(intra_xs.footprint)})
         if 'multidataset' in intra_xs.attrs:
             intra_xs.attrs.update({'multidataset': str(intra_xs.multidataset)})
-            #intra_xs.attrs.pop('pixel_line_m')
-            #intra_xs.attrs.pop('pixel_sample_m')
+            # intra_xs.attrs.pop('pixel_line_m')
+            # intra_xs.attrs.pop('pixel_sample_m')
 
     inter_xs = compute_IW_subswath_interburst_xspectra(dt, polarization=polarization, **kwargs)
     if 'spatial_ref' in inter_xs:
@@ -44,15 +37,15 @@ def compute_subswath_xspectra(dt, polarization, **kwargs):
     if isinstance(inter_xs, xr.Dataset):
         if 'multidataset' in inter_xs.attrs:
             inter_xs.attrs.update({'multidataset': str(inter_xs.multidataset)})
-            #inter_xs.attrs.update({'start_date': str(inter_xs.start_date)})
-            #inter_xs.attrs.update({'stop_date': str(inter_xs.stop_date)})
+            # inter_xs.attrs.update({'start_date': str(inter_xs.start_date)})
+            # inter_xs.attrs.update({'stop_date': str(inter_xs.stop_date)})
         inter_xs.attrs.update({'footprint': str(inter_xs.footprint)})
-            #inter_xs.attrs.pop('pixel_line_m')
-            #inter_xs.attrs.pop('pixel_sample_m')
+        # inter_xs.attrs.pop('pixel_line_m')
+        # inter_xs.attrs.pop('pixel_sample_m')
     if not inter_xs and not intra_xs:
         dt = None
     else:
-        dt_dict={}
+        dt_dict = {}
         if inter_xs:
             dt_dict.update({'interburst_xspectra': netcdf_compliant(inter_xs)})
         if intra_xs:
@@ -90,15 +83,20 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
     burst = dt['measurement'].ds.sel(pol=polarization)
     burst.load()
     burst.attrs.update(commons)
-    xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'], dt['noise_range'], dt['noise_azimuth'], tile_width, tile_overlap, **kwargs)
-    xspectra = xspectra.drop(['tile_line', 'tile_sample']) # dropping coordinate is important to not artificially multiply the dimensions
-    if xspectra.sizes['tile_line']==xspectra.sizes['tile_sample']==1: # In WV mode, it will probably be only one tile
+    xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'],
+                                      dt['noise_range'], dt['noise_azimuth'], tile_width, tile_overlap, **kwargs)
+    xspectra = xspectra.drop(
+        ['tile_line', 'tile_sample'])  # dropping coordinate is important to not artificially multiply the dimensions
+    if xspectra.sizes['tile_line'] == xspectra.sizes[
+        'tile_sample'] == 1:  # In WV mode, it will probably be only one tile
         xspectra = xspectra.squeeze(['tile_line', 'tile_sample'])
-    dims_to_transpose = [d for d in ['tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with intraburst
+    dims_to_transpose = [d for d in ['tile_sample', 'tile_line', 'freq_sample', 'freq_line'] if
+                         d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
     return xspectra
 
+
 def compute_IW_subswath_intraburst_xspectra(dt, polarization, tile_width={'sample': 20.e3, 'line': 20.e3},
-                                         tile_overlap={'sample': 10.e3, 'line': 10.e3}, **kwargs):
+                                            tile_overlap={'sample': 10.e3, 'line': 10.e3}, **kwargs):
     """
     Compute IW subswath intra-burst xspectra per tile
     Note: If requested tile is larger than the size of availabe data. tile will be set to maximum available size
@@ -127,10 +125,10 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, tile_width={'sampl
     xspectra = list()
     nb_burst = dt['bursts'].sizes['burst']
     dev = kwargs.get('dev', False)
-    
+
     if dev:
-        logging.info('reduce number of burst -> 2')
-        nb_burst = 2
+        logging.info('reduce number of burst -> 1')
+        nb_burst = 1
 
     for b in range(nb_burst):
         burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
@@ -138,25 +136,29 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, tile_width={'sampl
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
         burst.load()
         burst.attrs.update(commons)
-        burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'], dt['noise_range'], dt['noise_azimuth'], tile_width,tile_overlap, **kwargs)
+        burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'],
+                                                dt['noise_range'], dt['noise_azimuth'], tile_width, tile_overlap,
+                                                **kwargs)
         if burst_xspectra:
-            xspectra.append(burst_xspectra.drop(['tile_line', 'tile_sample'])) # dropping coordinate is important to not artificially multiply the dimensions
+            xspectra.append(burst_xspectra.drop(['tile_line',
+                                                 'tile_sample']))  # dropping coordinate is important to not artificially multiply the dimensions
 
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     if xspectra:
         Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
         # xspectra = xr.combine_by_coords([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra],
-                                        # combine_attrs='drop_conflicts')  # rearange xs on burst
+        # combine_attrs='drop_conflicts')  # rearange xs on burst
         # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
         # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
         xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
-        dims_to_transpose = [d for d in ['burst', 'tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with interburst
+        dims_to_transpose = [d for d in ['burst', 'tile_sample', 'tile_line', 'freq_sample', 'freq_line'] if
+                             d in xspectra.dims]  # for homogeneous order of dimensions with interburst
         xspectra = xspectra.transpose(*dims_to_transpose, ...)
     return xspectra
 
 
 def compute_IW_subswath_interburst_xspectra(dt, polarization, tile_width={'sample': 20.e3, 'line': 1.5e3},
-                                         tile_overlap={'sample': 10.e3, 'line': 0.75e3}, **kwargs):
+                                            tile_overlap={'sample': 10.e3, 'line': 0.75e3}, **kwargs):
     """
     Compute IW subswath inter-burst xspectra. No deramping is applied since only magnitude is used.
     
@@ -195,7 +197,9 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, tile_width={'sampl
                             merge_burst_annotation=True).sel(pol=polarization)
         burst0.attrs.update(commons)
         burst1.attrs.update(commons)
-        interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'], dt['calibration'], dt['noise_range'], dt['noise_azimuth'], tile_width,
+        interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'],
+                                                              dt['calibration'], dt['noise_range'], dt['noise_azimuth'],
+                                                              tile_width,
                                                               tile_overlap, **kwargs)
         if interburst_xspectra:
             xspectra.append(interburst_xspectra.drop(['tile_line', 'tile_sample']))
@@ -204,13 +208,15 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, tile_width={'sampl
     if xspectra:
         Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
         # xspectra = xr.combine_by_coords([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra],
-                                        # combine_attrs='drop_conflicts')  # rearange xs on burst
+        # combine_attrs='drop_conflicts')  # rearange xs on burst
         # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
         # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
         xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
-        dims_to_transpose = [d for d in ['burst', 'tile_sample','tile_line', 'freq_sample','freq_line'] if d in xspectra.dims] # for homogeneous order of dimensions with intraburst
+        dims_to_transpose = [d for d in ['burst', 'tile_sample', 'tile_line', 'freq_sample', 'freq_line'] if
+                             d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
         xspectra = xspectra.transpose(*dims_to_transpose, ...)
     return xspectra
+
 
 def compute_modulation(ds, lowpass_width, spacing):
     """
@@ -273,12 +279,13 @@ def compute_azimuth_cutoff(spectrum, definition='drfab'):
 
     def fit_gauss(x, a, l):
         return a * np.exp(-(np.pi * x / l) ** 2)
+
     try:
         p, r = curve_fit(fit_gauss, coVfit.az, coVfit.data, p0=[1., 227.])
         cutoff = p[1]
     except:
         cutoff = np.nan
-    
+
     cutoff = xr.DataArray(float(cutoff), name='azimuth_cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
     return cutoff
 
@@ -291,11 +298,12 @@ def compute_normalized_variance(modulation):
     Return:
         (float): normalized variance
     """
-    detected_mod = np.abs(modulation)**2.
-    nv = detected_mod.var(dim=['line', 'sample'])/((detected_mod.mean(dim=['line', 'sample']))**2)
+    detected_mod = np.abs(modulation) ** 2.
+    nv = detected_mod.var(dim=['line', 'sample']) / ((detected_mod.mean(dim=['line', 'sample'])) ** 2)
     nv = nv.rename('normalized_variance')
     nv.attrs.update({'long_name': 'normalized variance', 'units': ''})
     return nv
+
 
 def compute_mean_sigma0(DN, sigma0_lut, range_noise_lut, azimuth_noise_lut):
     """
@@ -310,12 +318,12 @@ def compute_mean_sigma0(DN, sigma0_lut, range_noise_lut, azimuth_noise_lut):
     sigma0_lut = sigma0_lut.sel(pol=polarization)
     range_noise_lut = range_noise_lut.sel(pol=polarization)
     azimuth_noise_lut = azimuth_noise_lut.sel(pol=polarization)
-    noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True))*(range_noise_lut.interp_like(DN, assume_sorted=True))
-    sigma0 = (np.abs(DN)**2-noise)/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)
-    sigma0 = sigma0.mean(dim=['line','sample']).rename('sigma0')
+    noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True)) * (
+        range_noise_lut.interp_like(DN, assume_sorted=True))
+    sigma0 = (np.abs(DN) ** 2 - noise) / ((sigma0_lut.interp_like(DN, assume_sorted=True)) ** 2)
+    sigma0 = sigma0.mean(dim=['line', 'sample']).rename('sigma0')
     sigma0.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
     return sigma0
-
 
 
 def symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az'):
@@ -341,7 +349,6 @@ def symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az'):
     return res
 
 
-
 def get_centroid(spectrum, dim, width=0.5, method='firstmoment'):
     """
     Find Doppler centroid of provided spectrum value. If the provided spectrum has more than one dimension, they will be averaged.
@@ -355,29 +362,30 @@ def get_centroid(spectrum, dim, width=0.5, method='firstmoment'):
     Return:
         (float) : Doppler centroid value in same unit than dim
     """
-    if spectrum.dtype==complex:
+    if spectrum.dtype == complex:
         raise ValueError('Doppler centroid can not be estimated on complex data')
-    if len(spectrum.sizes)>1:
-        spectrum = spectrum.mean(list(set(spectrum.sizes.keys())-set([dim])))
+    if len(spectrum.sizes) > 1:
+        spectrum = spectrum.mean(list(set(spectrum.sizes.keys()) - set([dim])))
     if dim not in spectrum.coords:
         raise ValueError('{} are not in {}'.format(dim, spectrum.coords))
 
     imax = int(spectrum.argmax())
-    N = int(width*spectrum.sizes[dim])
-    fit_spectrum = spectrum[{dim:slice(max(0,imax-N//2),min(imax+N//2,spectrum.sizes[dim]))}] # selecting portion of interest (width)
+    N = int(width * spectrum.sizes[dim])
+    fit_spectrum = spectrum[{dim: slice(max(0, imax - N // 2), min(imax + N // 2, spectrum.sizes[
+        dim]))}]  # selecting portion of interest (width)
 
-    if method=='firstmoment':
-        centroid = float((fit_spectrum*fit_spectrum[dim]).sum()/(fit_spectrum).sum())
+    if method == 'firstmoment':
+        centroid = float((fit_spectrum * fit_spectrum[dim]).sum() / (fit_spectrum).sum())
 
-    elif method=='maxfit':
+    elif method == 'maxfit':
         from scipy.optimize import curve_fit
-        fit_gauss = lambda x,a,c,l:a*np.exp(-(x-c)**2/(l**2))
-        a_estimate = float(spectrum[{dim:imax}])
-        c_estimate = float(spectrum[dim][{dim:imax}])
-        l_estimate = 0.25*float(spectrum[dim].max()-spectrum[dim].min())
+        fit_gauss = lambda x, a, c, l: a * np.exp(-(x - c) ** 2 / (l ** 2))
+        a_estimate = float(spectrum[{dim: imax}])
+        c_estimate = float(spectrum[dim][{dim: imax}])
+        l_estimate = 0.25 * float(spectrum[dim].max() - spectrum[dim].min())
         p, r = curve_fit(fit_gauss, fit_spectrum[dim], fit_spectrum.data, p0=[a_estimate, c_estimate, l_estimate])
         centroid = p[1]
     else:
         raise ValueError('Unknown method : {}'.format(method))
-    
+
     return centroid

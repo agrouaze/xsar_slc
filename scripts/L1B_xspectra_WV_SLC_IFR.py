@@ -19,7 +19,7 @@ import os
 import time
 import xsarslc
 import pdb
-from get_RI_file import get_IR_file
+from get_config_infos import get_IR_file
 PRODUCT_VERSION = '0.10' # see https://github.com/umr-lops/xsar_slc/wiki/processings
 def get_memory_usage():
     try:

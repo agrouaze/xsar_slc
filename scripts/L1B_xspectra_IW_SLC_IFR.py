@@ -16,16 +16,18 @@ import datetime
 import logging
 import os
 import time
-#import xsarslc as xsarslc
 import xsarslc
-from get_RI_file import get_IR_file
-import pdb
-# from yaml import load
-# from yaml import CLoader as Loader
-PRODUCT_VERSION = '1.2' #see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
+from get_config_infos import get_IR_file,get_production_version,get_default_outputdir
+
+
+PRODUCT_VERSION = get_production_version() #see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
+print('PRODUCT_VERSION',PRODUCT_VERSION,type(PRODUCT_VERSION))
 # stream = open(os.path.join(os.path.dirname(__file__), 'configuration_L1B_xspectra_IW_SLC_IFR_v1.yml'), 'r')
 # conf = load(stream, Loader=Loader)  # TODO : add argument to compute_subswath_xspectra(conf=conf)
-DEFAULT_OUPUT_DIR = os.path.join('/home/datawork-cersat-public/project/sarwave/data/products/tests/iw/slc/l1b/',PRODUCT_VERSION)
+DEFAULT_OUPUT_DIR = os.path.join(get_default_outputdir(),PRODUCT_VERSION)
+
+
+
 def get_memory_usage():
     try:
         import resource
@@ -36,13 +38,14 @@ def get_memory_usage():
     str_mem = 'RAM usage: %1.1f Go'%memory_used_go
     return str_mem
 
-def generate_IW_L1Bxspec_product(slc_iw_path,output_filename, polarization=None,dev=False):
+def generate_IW_L1Bxspec_product(slc_iw_path,output_filename, polarization=None,dev=False,landmask=None):
     """
 
     :param tiff: str full path
     :param output_filename : str full path
     :param polarization : str : VV VH HH HV [optional]
-    :apram dev: bool: allow to shorten the processing
+    :param dev: bool: allow to shorten the processing
+    :param landmask : landmask obj (eg : cartopy.feature.NaturalEarthFeature() )
     :return:
     """
     safe = os.path.dirname(os.path.dirname(slc_iw_path))
@@ -75,12 +78,12 @@ def generate_IW_L1Bxspec_product(slc_iw_path,output_filename, polarization=None,
         one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,polarization=polarization.upper(),
                                                                dev=dev,compute_intra_xspec=True,
                                                                compute_inter_xspec=True,tile_width=tile_width,
-                                                               tile_overlap=tile_overlap,IR_path=IR_path)
+                                                               tile_overlap=tile_overlap,IR_path=IR_path,landmask=landmask)
     else:
         one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt,polarization=polarization.upper(),
                                                                dev=dev,compute_intra_xspec=True,
                                                                compute_inter_xspec=True,tile_width=tile_width,
-                                                               tile_overlap=tile_overlap)
+                                                               tile_overlap=tile_overlap,landmask=landmask)
     if one_subswath_xspectrum_dt:
         logging.info('xspec intra and inter ready for %s', slc_iw_path)
         logging.debug('one_subswath_xspectrum = %s', one_subswath_xspectrum_dt)
@@ -113,6 +116,8 @@ if __name__ == '__main__':
     #parser.add_argument('--pol', required=False,choices=['VV','VH','HH','HV'], help='VV HH HV VH [None]', default=None)
     parser.add_argument('--outputdir', required=False, help='directory where to store output netCDF files',default=DEFAULT_OUPUT_DIR)
     parser.add_argument('--dev', action='store_true', default=False,help='dev mode stops the computation early')
+    parser.add_argument('--landmask',required=False,
+        help='landmask files (such as cartopy /.local/share/cartopy ) to have a landmask information without web connexion')
     args = parser.parse_args()
     fmt = '%(asctime)s %(levelname)s %(filename)s(%(lineno)d) %(message)s'
     if args.verbose:
@@ -124,6 +129,13 @@ if __name__ == '__main__':
     t0 = time.time()
 
     slc_iw_path = args.tiff
+    if 'cartopy' in args.landmask:
+        logging.info('landmask is a cartopy feature')
+        import cartopy
+        cartopy.config['pre_existing_data_dir'] = args.landmask
+        landmask = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
+    else:
+        landmask = None
     subswath_number = os.path.basename(slc_iw_path).split('-')[1]
     polarization_from_file = os.path.basename(slc_iw_path).split('-')[3]
     subsath_nickname = '%s_%s' % (subswath_number, polarization_from_file)
@@ -136,6 +148,6 @@ if __name__ == '__main__':
         logging.info('%s already exists', output_filename)
     else:
         generate_IW_L1Bxspec_product(slc_iw_path=slc_iw_path,output_filename=output_filename, dev=args.dev,
-                                     polarization=polarization_from_file)
+                                     polarization=polarization_from_file,landmask=landmask)
     logging.info('peak memory usage: %s Mbytes', get_memory_usage())
     logging.info('done in %1.3f min', (time.time() - t0) / 60.)
