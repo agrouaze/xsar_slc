@@ -14,6 +14,19 @@ def compute_subswath_xspectra(dt, polarization, tile_width_intra, tile_width_int
                               periodo_width_intra,periodo_width_inter, periodo_overlap_intra,periodo_overlap_inter, **kwargs):
     """
     Main function to compute IW inter and intra burst spectra. It has to be modified to be able to change Xspectra options
+
+    Args:
+        dt (xarray.Datatree): datatree contraining subswath information
+        tile_width_intra (dict, optional): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)} for intra burst.
+        tile_width_inter (dict, optional): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)} for inter burst.
+        tile_overlap_intra (dict, optional): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for intra burst.
+        tile_overlap_inter (dict, optional): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for inter burst.
+        periodo_width_intra (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)} for intra burst.
+        periodo_width_inter (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)} for inter burst.
+        periodo_overlap_intra (dict): approximative sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for intra burst.
+        periodo_overlap_inter (dict): approximative sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for inter burst.
+        polarization (str, optional): polarization to be selected for xspectra computation
+
     Keyword Args:
         kwargs (dict): keyword arguments passed to called functions. landmask, ...
     """
