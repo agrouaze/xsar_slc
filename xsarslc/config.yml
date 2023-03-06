@@ -2,4 +2,4 @@
 data_dir: /tmp
 auxfiledir: ../aux_files/
 product_version: 1.5
-default_outputdir: './'
+default_outputdir: '/home/datawork-cersat-public/project/sarwave/data/products/tests/iw/slc/l1b'
