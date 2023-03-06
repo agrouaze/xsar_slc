@@ -21,10 +21,9 @@ from get_config_infos import get_IR_file,get_production_version,get_default_outp
 
 
 PRODUCT_VERSION = get_production_version() #see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
-print('PRODUCT_VERSION',PRODUCT_VERSION,type(PRODUCT_VERSION))
 # stream = open(os.path.join(os.path.dirname(__file__), 'configuration_L1B_xspectra_IW_SLC_IFR_v1.yml'), 'r')
 # conf = load(stream, Loader=Loader)  # TODO : add argument to compute_subswath_xspectra(conf=conf)
-DEFAULT_OUPUT_DIR = os.path.join(get_default_outputdir(),PRODUCT_VERSION)
+
 
 
 
@@ -114,7 +113,8 @@ if __name__ == '__main__':
     parser.add_argument('--tiff', required=True, help='tiff file full path IW SLC')
     parser.add_argument('--subswath', required=False, help='iw1 iw2... [None]', default=None)
     #parser.add_argument('--pol', required=False,choices=['VV','VH','HH','HV'], help='VV HH HV VH [None]', default=None)
-    parser.add_argument('--outputdir', required=False, help='directory where to store output netCDF files',default=DEFAULT_OUPUT_DIR)
+    parser.add_argument('--outputdir', required=False, help='directory where to store output netCDF files',default=get_default_outputdir())
+    parser.add_argument('--version',help='set the output product version (e.g. 1.4) default version will come from config.yml',required=False,default=PRODUCT_VERSION)
     parser.add_argument('--dev', action='store_true', default=False,help='dev mode stops the computation early')
     parser.add_argument('--landmask',required=False,
         help='landmask files (such as cartopy /.local/share/cartopy ) to have a landmask information without web connexion')
@@ -127,7 +127,8 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.INFO, format=fmt,
                             datefmt='%d/%m/%Y %H:%M:%S')
     t0 = time.time()
-
+    logging.info('product version to produce: %s',args.version)
+    logging.info('outputdir will be: %s',args.outputdir)
     slc_iw_path = args.tiff
     if 'cartopy' in args.landmask:
         logging.info('landmask is a cartopy feature')
@@ -140,8 +141,8 @@ if __name__ == '__main__':
     polarization_from_file = os.path.basename(slc_iw_path).split('-')[3]
     subsath_nickname = '%s_%s' % (subswath_number, polarization_from_file)
     safe_basename = os.path.basename(os.path.dirname(os.path.dirname(slc_iw_path)))
-    output_filename = os.path.join(args.outputdir,safe_basename, os.path.basename(
-        slc_iw_path).replace('.tiff','') + '_L1B_xspec_IFR_' + PRODUCT_VERSION + '.nc')
+    output_filename = os.path.join(args.outputdir,args.version,safe_basename, os.path.basename(
+        slc_iw_path).replace('.tiff','') + '_L1B_xspec_IFR_' + args.version + '.nc')
     logging.info('mode dev is %s',args.dev)
     logging.info('output filename would be: %s',output_filename)
     if os.path.exists(output_filename) and args.overwrite is False:
