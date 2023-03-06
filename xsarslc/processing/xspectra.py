@@ -191,12 +191,12 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization,periodo_width, peri
     keeps maximum number of point in azimuth but is not ensuring the same number of overlapping point for all burst
     
     Args:
-        dt (xarray.Datatree): datatree contraining subswath information
-        tile_width (dict): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
-        tile_overlap (dict): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        dt (xarray.Datatree): datatree containing sub-swath information
+        tile_width (dict): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
+        tile_overlap (dict): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
         polarization (str, optional): polarization to be selected for xspectra computation
-        periodo_width (dict): approximative sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)}
-        periodo_overlap (dict): approximative sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        periodo_width (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)}
+        periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
     
     Keyword Args:
         kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra(). landmask is valid entries
