@@ -11,7 +11,7 @@ stream = open(os.path.join(os.path.dirname(xsarslc.__file__), 'config.yml'), 'r'
 conf = load(stream, Loader=Loader)  # TODO : add argument to compute_subswath_xspectra(conf=conf)
 
 
-def get_IR_file(unit, subswath, polarization, auxdir=conf['auxfiledir']):
+def get_IR_file(unit, subswath, polarization):
     """
     parameters:
         unit str S1A or S1B or ...
@@ -19,7 +19,7 @@ def get_IR_file(unit, subswath, polarization, auxdir=conf['auxfiledir']):
         polarization str VH HH VV
     """
 
-    pathaux = os.path.abspath(os.path.join(os.path.dirname(xsarslc.__file__), 'scripts', auxdir,
+    pathaux = os.path.abspath(os.path.join(os.path.dirname(xsarslc.__file__), 'auxdata',
                                            unit + '_IRs_' + subswath + '_' + polarization + '.nc'))
     logging.info('pathaux: %s', pathaux)
     if os.path.exists(pathaux):
