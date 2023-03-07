@@ -49,6 +49,26 @@ def get_default_outputdir(auxdir=conf):
     do = auxdir['default_outputdir']
     return do
 
+def get_default_landmask_dir(auxdir=conf):
+    """
+
+        :param auxdir: str path of the config file
+        :return:
+             lm (str): path of the landmask cartopy for instance (for offline access)
+        """
+    lm = auxdir['default_landmask_dir']
+    return lm
+
+def get_default_xspec_params(config_name='tiles20km',auxdir=conf):
+    """
+
+    :param config_name: str eg tiles2km
+    :param auxdir: str path of the config file
+    :return:
+    """
+    params = auxdir['xspec_configs'][config_name]
+    return params
+
 
 if __name__ == '__main__':
     get_IR_file(unit='S1A', subswath='WV2', polarization='VV', auxdir=conf['auxfiledir'])

@@ -10,16 +10,36 @@ from xsarslc.tools import xtiling, xndindex
 import warnings
 
 
-def compute_subswath_xspectra(dt, polarization, **kwargs):
+def compute_subswath_xspectra(dt, polarization, tile_width_intra, tile_width_inter, tile_overlap_intra,
+                              tile_overlap_inter,
+                              periodo_width_intra, periodo_width_inter, periodo_overlap_intra, periodo_overlap_inter,
+                              **kwargs):
     """
     Main function to compute IW inter and intra burst spectra. It has to be modified to be able to change Xspectra options
+
+    Args:
+        dt (xarray.Datatree): datatree contraining subswath information
+        tile_width_intra (dict, optional): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)} for intra burst.
+        tile_width_inter (dict, optional): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)} for inter burst.
+        tile_overlap_intra (dict, optional): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for intra burst.
+        tile_overlap_inter (dict, optional): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for inter burst.
+        periodo_width_intra (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)} for intra burst.
+        periodo_width_inter (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)} for inter burst.
+        periodo_overlap_intra (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for intra burst.
+        periodo_overlap_inter (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for inter burst.
+        polarization (str, optional): polarization to be selected for xspectra computation
+
     Keyword Args:
         kwargs (dict): keyword arguments passed to called functions. landmask, ...
     """
     import datatree
     from xsarslc.tools import netcdf_compliant
 
-    intra_xs = compute_IW_subswath_intraburst_xspectra(dt, polarization=polarization, **kwargs)
+    intra_xs = compute_IW_subswath_intraburst_xspectra(dt, polarization=polarization, tile_width=tile_width_intra,
+                                                       tile_overlap=tile_overlap_intra,
+                                                       periodo_overlap=periodo_overlap_intra,
+                                                       periodo_width=periodo_width_intra,
+                                                       **kwargs)
     if 'spatial_ref' in intra_xs:
         intra_xs = intra_xs.drop('spatial_ref')
         # intra_xs.attrs.update({'start_date': str(intra_xs.start_date)})
@@ -31,7 +51,11 @@ def compute_subswath_xspectra(dt, polarization, **kwargs):
             # intra_xs.attrs.pop('pixel_line_m')
             # intra_xs.attrs.pop('pixel_sample_m')
 
-    inter_xs = compute_IW_subswath_interburst_xspectra(dt, polarization=polarization, **kwargs)
+    inter_xs = compute_IW_subswath_interburst_xspectra(dt, polarization=polarization, tile_width=tile_width_inter,
+                                                       tile_overlap=tile_overlap_inter,
+                                                       periodo_overlap=periodo_overlap_inter,
+                                                       periodo_width=periodo_width_inter,
+                                                       **kwargs)
     if 'spatial_ref' in inter_xs:
         inter_xs = inter_xs.drop('spatial_ref')
     if isinstance(inter_xs, xr.Dataset):
@@ -56,13 +80,13 @@ def compute_subswath_xspectra(dt, polarization, **kwargs):
 
 def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overlap=None, **kwargs):
     """
-    Main function to compute WV xspectra (tiling is available)
-    Note: If requested tile is larger than the size of availabe data (or set to None). tile will be set to maximum available size
+    Main function to compute WV x-spectra (tiling is available)
+    Note: If requested tile is larger than the size of available data (or set to None). tile will be set to maximum available size
     Args:
-        dt (xarray.Datatree): datatree contraining subswath information
-        tile_width (dict, optional): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}. Default is all imagette
-        tile_overlap (dict, optional): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}. Default is no overlap
-        polarization (str, optional): polarization to be selected for xspectra computation
+        dt (xarray.Datatree): datatree containing sub-swath information
+        tile_width (dict, optional): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}. Default is all imagette
+        tile_overlap (dict, optional): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}. Default is no overlap
+        polarization (str, optional): polarization to be selected for x-spectra computation
     
     Keyword Args:
         kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(): landmask, IR_path are valid entries
@@ -95,7 +119,9 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
     return xspectra
 
 
-def compute_IW_subswath_intraburst_xspectra(dt, polarization, tile_width={'sample': 20.e3, 'line': 20.e3},
+def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sample': 2000, 'line': 2000},
+                                            periodo_overlap={'sample': 1000 ,'line': 1000},
+                                            tile_width={'sample': 20.e3, 'line': 20.e3},
                                             tile_overlap={'sample': 10.e3, 'line': 10.e3}, **kwargs):
     """
     Compute IW subswath intra-burst xspectra per tile
@@ -106,6 +132,8 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, tile_width={'sampl
         tile_width (dict): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         tile_overlap (dict): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
         polarization (str, optional): polarization to be selected for xspectra computation
+        periodo_width (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)}
+        periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
     
     Keyword Args:
         kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(). landmask, IR_path are valid entries
@@ -138,6 +166,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, tile_width={'sampl
         burst.attrs.update(commons)
         burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'],
                                                 dt['noise_range'], dt['noise_azimuth'], tile_width, tile_overlap,
+                                                periodo_width=periodo_width, periodo_overlap=periodo_overlap,
                                                 **kwargs)
         if burst_xspectra:
             xspectra.append(burst_xspectra.drop(['tile_line',
@@ -157,7 +186,9 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, tile_width={'sampl
     return xspectra
 
 
-def compute_IW_subswath_interburst_xspectra(dt, polarization, tile_width={'sample': 20.e3, 'line': 1.5e3},
+def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sample': 2000, 'line': 1200},
+                                            periodo_overlap={'sample': 1000 ,'line': 600},
+                                            tile_width={'sample': 20.e3, 'line': 1.5e3},
                                             tile_overlap={'sample': 10.e3, 'line': 0.75e3}, **kwargs):
     """
     Compute IW subswath inter-burst xspectra. No deramping is applied since only magnitude is used.
@@ -167,10 +198,12 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, tile_width={'sampl
     keeps maximum number of point in azimuth but is not ensuring the same number of overlapping point for all burst
     
     Args:
-        dt (xarray.Datatree): datatree contraining subswath information
-        tile_width (dict): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
-        tile_overlap (dict): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        dt (xarray.Datatree): datatree containing sub-swath information
+        tile_width (dict): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
+        tile_overlap (dict): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
         polarization (str, optional): polarization to be selected for xspectra computation
+        periodo_width (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)}
+        periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
     
     Keyword Args:
         kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra(). landmask is valid entries
@@ -199,8 +232,10 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, tile_width={'sampl
         burst1.attrs.update(commons)
         interburst_xspectra = tile_bursts_overlap_to_xspectra(burst0, burst1, dt['geolocation_annotation'],
                                                               dt['calibration'], dt['noise_range'], dt['noise_azimuth'],
-                                                              tile_width,
-                                                              tile_overlap, **kwargs)
+                                                              tile_width=tile_width,
+                                                              tile_overlap=tile_overlap,
+                                                              periodo_width=periodo_width,
+                                                              periodo_overlap=periodo_overlap, **kwargs)
         if interburst_xspectra:
             xspectra.append(interburst_xspectra.drop(['tile_line', 'tile_sample']))
 

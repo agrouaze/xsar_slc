@@ -2,4 +2,57 @@
 data_dir: /tmp
 auxfiledir: ../aux_files/
 product_version: 1.5
-default_outputdir: './'
+default_outputdir: '/home/datawork-cersat-public/project/sarwave/data/products/tests/iw/slc/l1b'
+default_landmask_dir: '/home1/datahome/agrouaze/.local/share/cartopy/'
+xspec_configs:
+  tiles20km:
+    tile_width_intra:
+      sample: 20000
+      line: 20000
+    tile_overlap_intra:
+      sample: 0
+      line: 0
+    periodo_width_intra:
+      sample: 4000
+      line: 4000
+    periodo_overlap_intra:
+      sample: 2000
+      line: 2000
+    tile_width_inter:
+      sample: 20000
+      line: 20000
+    tile_overlap_inter:
+      sample: 0
+      line: 0
+    periodo_width_inter:
+      sample: 2000
+      line: 1200
+    periodo_overlap_inter:
+      sample: 1000
+      line: 600
+  tiles2km:
+    tile_width_intra:
+      sample: 2000
+      line: 2000
+    tile_overlap_intra:
+      sample: 0
+      line: 0
+    periodo_width_intra:
+      sample: 1800
+      line: 1800
+    periodo_overlap_intra:
+      sample: 900
+      line: 900
+    tile_width_inter:
+      sample: 2000
+      line: 2000
+    tile_overlap_inter:
+      sample: 0
+      line: 0
+    periodo_width_inter:
+      sample: 1800
+      line: 1200
+    periodo_overlap_inter:
+      sample: 900
+      line: 600
+
