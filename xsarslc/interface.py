@@ -32,7 +32,7 @@ def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sam
         incidence = mytile['incidence']
         if not np.isnan(incidence): # incidence is set at "Nan" when no data available in tile (ex: not on waters)
             spacing = {'sample':mytile['sampleSpacing']/np.sin(np.radians(incidence)), 'line':mytile['lineSpacing']}
-            low_res_tiles.append(compute_low_res_tiles(mytile, spacing = spacing, posting = posting, tile_width=tile_width), **kwargs)
+            low_res_tiles.append(compute_low_res_tiles(mytile, spacing = spacing, posting = posting, tile_width=tile_width, **kwargs))
     res = xr.combine_by_coords([t.expand_dims(['burst', 'tile_sample', 'tile_line']) for t in low_res_tiles])
     attrs = L1B.attrs.copy()
     attr_to_rm = ['comment','azimuth_time_interval','periodo_width_sample','periodo_width_line','periodo_overlap_sample','periodo_overlap_line']
