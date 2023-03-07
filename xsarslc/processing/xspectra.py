@@ -119,7 +119,8 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
     return xspectra
 
 
-def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width, periodo_overlap,
+def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sample': 2000, 'line': 2000},
+                                            periodo_overlap={'sample': 1000 ,'line': 1000},
                                             tile_width={'sample': 20.e3, 'line': 20.e3},
                                             tile_overlap={'sample': 10.e3, 'line': 10.e3}, **kwargs):
     """
@@ -185,7 +186,8 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width, per
     return xspectra
 
 
-def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width, periodo_overlap,
+def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sample': 2000, 'line': 1200},
+                                            periodo_overlap={'sample': 1000 ,'line': 600},
                                             tile_width={'sample': 20.e3, 'line': 1.5e3},
                                             tile_overlap={'sample': 10.e3, 'line': 0.75e3}, **kwargs):
     """
