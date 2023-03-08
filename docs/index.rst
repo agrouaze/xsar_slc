@@ -64,6 +64,7 @@ Examples
 * :doc:`examples/xspec_WV_example`
 * :doc:`examples/example_IW_compute_and_correct_from_impulse_response`
 * :doc:`examples/example_WV_compute_and_correct_from_impulse_response`
+* :doc:`examples/default_impulseResponse_files_IW`
 
 
 Reference
@@ -104,6 +105,7 @@ Last documentation build: |today|
    examples/xspec_WV_example
    examples/example_IW_compute_and_correct_from_impulse_response
    examples/example_WV_compute_and_correct_from_impulse_response
+   examples/default_impulseResponse_files_IW
 
 .. toctree::
    :maxdepth: 1

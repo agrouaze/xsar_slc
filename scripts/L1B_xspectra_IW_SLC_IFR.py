@@ -9,8 +9,6 @@ purpose: produce nc files from SAFE IW SLC containing cartesian x-spec computed 
 import xsarslc.processing.xspectra as proc
 import warnings
 import xsar
-import pdb
-
 # warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore')
 import numpy as np
@@ -19,7 +17,7 @@ import logging
 import os
 import time
 import xsarslc
-from get_config_infos import get_IR_file, get_production_version, get_default_outputdir, get_default_xspec_params, \
+from xsarslc.get_config_infos import get_IR_file, get_production_version, get_default_outputdir, get_default_xspec_params, \
     get_default_landmask_dir
 
 PRODUCT_VERSION = get_production_version()  # see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
@@ -76,8 +74,8 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     logging.info('tile_width_intra : %s', tile_width_intra)
     unit = os.path.basename(safe)[0:3]
     subswath = str_gdal.split(':')[2]
-    IR_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
-    IR_path = get_IR_file(unit, subswath, polarization.upper(), auxdir=IR_dir)
+    IR_path = get_IR_file(unit, subswath, polarization.upper())
+    logging.info('impulse response file: %s',IR_path)
     if IR_path:
         one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt, polarization=polarization.upper(),
                                                                    dev=dev, compute_intra_xspec=True,
@@ -134,7 +132,7 @@ if __name__ == '__main__':
                         help='overwrite the existing outputs [default=False]', required=False)
     parser.add_argument('--tiff', required=True, help='tiff file full path IW SLC')
     parser.add_argument('--outputdir', required=False, help='directory where to store output netCDF files',
-                        default=get_default_outputdir())
+                        default=get_default_outputdir(mode='iw'))
     parser.add_argument('--version',
                         help='set the output product version (e.g. 1.4) default version will be read from config.yml',
                         required=False, default=PRODUCT_VERSION)
