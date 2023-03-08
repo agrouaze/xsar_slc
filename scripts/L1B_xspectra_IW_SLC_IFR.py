@@ -17,7 +17,7 @@ import logging
 import os
 import time
 import xsarslc
-from get_config_infos import get_IR_file, get_production_version, get_default_outputdir, get_default_xspec_params, \
+from xsarslc.get_config_infos import get_IR_file, get_production_version, get_default_outputdir, get_default_xspec_params, \
     get_default_landmask_dir
 
 PRODUCT_VERSION = get_production_version()  # see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings

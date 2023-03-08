@@ -1,14 +1,11 @@
 import xsarslc
 from yaml import load
 import logging
-from importlib import reload
 import os
-reload(logging)
-logging.basicConfig(level=logging.INFO)
 from yaml import CLoader as Loader
 
 stream = open(os.path.join(os.path.dirname(xsarslc.__file__), 'config.yml'), 'r')
-conf = load(stream, Loader=Loader)  # TODO : add argument to compute_subswath_xspectra(conf=conf)
+conf = load(stream, Loader=Loader)
 
 
 def get_IR_file(unit, subswath, polarization):
@@ -19,7 +16,7 @@ def get_IR_file(unit, subswath, polarization):
         polarization str VH HH VV
     """
 
-    pathaux = os.path.abspath(os.path.join(os.path.dirname(xsarslc.__file__), 'auxdata',
+    pathaux = os.path.abspath(os.path.join(os.path.dirname(xsarslc.__file__),'..', 'auxdata',
                                            unit + '_IRs_' + subswath + '_' + polarization + '.nc'))
     logging.info('pathaux: %s', pathaux)
     if os.path.exists(pathaux):
@@ -68,9 +65,3 @@ def get_default_xspec_params(config_name='tiles20km',auxdir=conf):
     """
     params = auxdir['xspec_configs'][config_name]
     return params
-
-
-if __name__ == '__main__':
-    get_IR_file(unit='S1A', subswath='WV2', polarization='VV', auxdir=conf['auxfiledir'])
-    out_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
-    get_IR_file(unit='S1A', subswath='WV2', polarization='VV', auxdir=out_dir)
