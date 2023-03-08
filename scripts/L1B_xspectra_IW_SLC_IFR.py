@@ -9,8 +9,6 @@ purpose: produce nc files from SAFE IW SLC containing cartesian x-spec computed 
 import xsarslc.processing.xspectra as proc
 import warnings
 import xsar
-import pdb
-
 # warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore')
 import numpy as np
@@ -76,8 +74,8 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     logging.info('tile_width_intra : %s', tile_width_intra)
     unit = os.path.basename(safe)[0:3]
     subswath = str_gdal.split(':')[2]
-    IR_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
-    IR_path = get_IR_file(unit, subswath, polarization.upper(), auxdir=IR_dir)
+    #IR_dir = '/home/datawork-cersat-public/project/sarwave/data/products/developments/aux_files/sar/impulse_response/'
+    IR_path = get_IR_file(unit, subswath, polarization.upper())
     if IR_path:
         one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt, polarization=polarization.upper(),
                                                                    dev=dev, compute_intra_xspec=True,
