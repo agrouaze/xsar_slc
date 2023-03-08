@@ -36,14 +36,14 @@ def get_production_version(auxdir=conf):
     pv = str(auxdir['product_version'])
     return pv
 
-def get_default_outputdir(auxdir=conf):
+def get_default_outputdir(mode='iw',auxdir=conf):
     """
 
     :param auxdir: str path of the config file
     :return:
          do (str): path of the outputdir where to store L1B files
     """
-    do = auxdir['default_outputdir']
+    do = auxdir['default_outputdir_%s'%mode]
     return do
 
 def get_default_landmask_dir(auxdir=conf):
