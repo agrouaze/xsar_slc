@@ -10,6 +10,7 @@ algorithm overview
 ##################
 
 processing steps to start from S1 SLC product to L1B
+::toctree:
 
   - computing modulation
   - tiling the sub-swath
@@ -22,6 +23,42 @@ processing steps to start from S1 SLC product to L1B
   - zero doppler estimation
   - FFT computation
   - normalization of looks energy
+
+
+Last documentation build: |today|
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: Computation of sublook cross-spectra (WV and IW products)
+
+   crossspectra
+
+
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: Computation of the azimuthal cut-off
+
+   cutoff
+
+
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: Computation of calibrated denoised $\sigma^0$
+
+   sigma0
+
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: Computation of the sigma0 normalized variance
+
+   normalizedvariance
 
 
 computing modulation
