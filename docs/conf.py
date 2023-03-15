@@ -34,9 +34,7 @@ extensions = [
     'sphinx_rtd_theme',
     'nbsphinx',
     'jupyter_sphinx',
-    'sphinxcontrib.programoutput'
 ]
-
 # order by source
 autodoc_member_order = 'bysource'
 
