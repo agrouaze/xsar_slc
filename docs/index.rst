@@ -54,10 +54,6 @@ ATBD
 
 * :doc:`ATBD`
 
-nlldmfkdsmm
-
-.. include:: ATBD_L1BSLC.rst
-
 Examples
 ........
 
@@ -93,7 +89,7 @@ Last documentation build: |today|
    installing
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :hidden:
    :caption: Algorithm description
 
