@@ -42,8 +42,8 @@ Overview
 
     Default configuration is set to:
         * 20x20 km tiles in the bursts. (less in inter burst where we have about 3 km of overlapping).
-        * 50% overlapping tiles
-        * 2-tau saved cross spectrum
+        * 0% overlapping tiles
+        * :math:`2xtau` saved cross spectrum
 
 
 ATBD
