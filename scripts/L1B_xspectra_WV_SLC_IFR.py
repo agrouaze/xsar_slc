@@ -4,6 +4,7 @@ A. Grouazel
 23 Jan 2023
 purpose: produce nc files from SAFE WV SLC containing cartesian x-spec computed with xsar and xsarsea
 """
+import pdb
 
 import xsarslc.processing.xspectra as proc
 from xsarslc.processing import xspectra
@@ -59,8 +60,8 @@ def generate_WV_L1Bxspec_product(slc_wv_path,output_filename, xspeconfigname,pol
     dt = xsarobj.datatree
     dt.load() #took ?min to load and ? Go RAM
     logging.info('datatree loaded %s',get_memory_usage())
-    unit = safe[0:3]
-    subswath = dt['image'].ds['swath_subswath'].values
+    unit = os.path.basename(safe)[0:3]
+    subswath = str(dt['image'].ds['swath_subswath'].values)
     IR_path = get_IR_file(unit, subswath, polarization.upper())
     xs0 = proc.compute_WV_intraburst_xspectra(dt=dt,
                                          polarization=polarization,
@@ -87,6 +88,9 @@ def generate_WV_L1Bxspec_product(slc_wv_path,output_filename, xspeconfigname,pol
         if not os.path.exists(os.path.dirname(output_filename)):
             os.makedirs(os.path.dirname(output_filename),0o0775)
             logging.info('makedir %s',os.path.dirname(output_filename))
+        xs.attrs['footprint'] = str(xs.attrs['footprint'])
+        xs.attrs['tile_width_sample'] = str(xs.attrs['tile_width_sample'].values)
+        xs.attrs['multidataset'] = str(xs.attrs['multidataset'])
         xs.to_netcdf(output_filename)
         logging.info('successfuly written %s', output_filename)
     else:
@@ -128,6 +132,7 @@ if __name__ == '__main__':
 
     slc_wv_path = args.tiff
     logging.info('product version to produce: %s', args.version)
+    logging.info('product version to produce: %s', args.version)
     logging.info('outputdir will be: %s', args.outputdir)
     logging.info('xspeconfigname : %s', args.xspeconfigname)
     subswath_number = os.path.basename(slc_wv_path).split('-')[1]
@@ -135,7 +140,7 @@ if __name__ == '__main__':
     subsath_nickname = '%s_%s' % (subswath_number, polarization_from_file)
     safe_basename = os.path.basename(os.path.dirname(os.path.dirname(slc_wv_path)))
     output_filename = os.path.join(args.outputdir, args.version,safe_basename, os.path.basename(
-        slc_wv_path).replace('.tiff','') + '_L1B_xspec_IFR_' + PRODUCT_VERSION + '.nc')
+        slc_wv_path).replace('.tiff','') + '_L1B_xspec_IFR_' + args.version + '.nc')
     logging.info('mode dev is %s',args.dev)
 
     if 'cartopy' in args.landmask:
