@@ -267,7 +267,8 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
     periodo = periodo.drop([range_dim, azimuth_dim]).swap_dims({'__' + d: d for d in periodo_slices.keys()})
     periodo_sizes = {d: k for d, k in periodo.sizes.items() if 'periodo_' in d}
 
-    if 'IR_path' in kwargs: # Impulse Response has been provided
+    #if 'IR_path' in kwargs: # Impulse Response has been provided
+    if kwargs.get('IR_path',None):
         IR = xr.load_dataset(kwargs.pop('IR_path'))
         IR['range_IR'] = IR['range_IR'].where(IR['range_IR']>IR['range_IR'].max()/100, np.nan) # discarding portion where range IR is very low
         freq_line = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(IR.sizes['k_az'])), dims='k_az')
