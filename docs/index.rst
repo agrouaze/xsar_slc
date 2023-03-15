@@ -82,6 +82,11 @@ Get in touch
 Last documentation build: |today|
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Home
+   :hidden:
+
+.. toctree::
    :maxdepth: 1
    :hidden:
    :caption: Getting Started
