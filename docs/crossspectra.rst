@@ -64,14 +64,17 @@ The azimuthal Doppler centroid is the mean azimuth frequency of the azimuthal Do
 .. math::
     \overline{D}(f_{az}) = \left\langle D(rg,f_{az})\right\rangle_{rg}
 
-An example of Doppler spectrum is represented on figure \ref{fig:dopplerspectrum}.
 
-\begin{figure}[!h]
-\centering
-\includegraphics[scale=0.4]{./figures/S1_azimuth_IR_IW_VV.png}
-\caption{Azimuthal Doppler spectrum}
-\label{fig:dopplerspectrum}
-\end{figure}
+
+.. image:: ./figures/S1_azimuth_IR_IW_VV.png
+  :alt: Azimuthal Doppler spectrum
+  :scale: 50 %
+  :name: S1_azimuth_IR_IW_VV_1
+  :target: _`dopplerspectrum`
+  :align: center
+
+An example of Doppler spectrum is represented on figure :numref:`S1_azimuth_IR_IW_VV_1` .
+
 
 The azimuthal Doppler centroid is, by definition, the mean (first order moment) of the Doppler spectrum, namely:
 
@@ -80,7 +83,8 @@ The azimuthal Doppler centroid is, by definition, the mean (first order moment) 
 
     DC \triangleq \dfrac{\int f_{az} \overline{D}(f_{az}) df_{az}}{\int\overline{D}(f_{az}) df_{az}}
 
-However, since the azimuthal Doppler spectrum is not symmetric due to windowing processing applied during the generation of the L1 SLC the estimation of the DC using equation :eq:`centroid` is biased.
+However, since the azimuthal Doppler spectrum is not symmetric due to windowing processing applied during the generation
+of the L1 SLC the estimation of the DC using equation :eq:`centroid` is biased.
 In practise, the DC is computed by fitting a Gaussian curve on the Doppler spectrum to find the position of the maximum.
 
 .. note::
@@ -119,39 +123,39 @@ Normalization of the Doppler spectrum by the Impulse Response of the instrument
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-Figure \ref{fig:azimuthIR_IW} and \ref{fig:rangeIR_IW} respectively show the centered azimuthal and slant-range Impulse Response of Sentinel-1 in VV polarization for the three subswath IW.
-Figure \ref{fig:azimuthIR_WV} and \ref{fig:rangeIR_WV} respectively show the centered azimuthal and slant-range Impulse Response of Sentinel-1 in VV polarization for the WV swath.
-
 These Impulse Responses have been computed over homogeneous and motion-less surfaces, averaged and stored.
 The dataset used to compute theses response is available here and the numerical code to produce them here.
 
-\begin{figure}
-\centering
-\includegraphics[scale=0.4]{./figures/S1_azimuth_IR_IW_VV.png}
-\caption{Azimuthal Impulse Response for IW sub-swathes in VV polarisation}
-\label{fig:azimuthIR_IW}
-\end{figure}
+.. figure:: ./figures/S1_azimuth_IR_IW_VV.png
+  :name: `s1_azimuth_ir_iw_vv`
+  :scale: 50 %
 
-\begin{figure}
-\centering
-\includegraphics[scale=0.4]{./figures/S1_range_IR_IW_VV.png}
-\caption{Range Impulse Response for IW sub-swathes in VV polarisation}
-\label{fig:rangeIR_IW}
-\end{figure}
+this is a caption of the first figure.
 
-\begin{figure}
-\centering
-\includegraphics[scale=0.4]{./figures/S1_azimuth_IR_WV_VV.png}
-\caption{Azimuthal Impulse Response for WV mode in VV polarisation}
-\label{fig:azimuthIR_WV}
-\end{figure}
+.. figure:: ./figures/S1_range_IR_IW_VV.png
+  :alt: Range Doppler spectrum
+  :scale: 50 %
+  :name: S1_range_IR_IW_VV
+  :align: center
 
-\begin{figure}
-\centering
-\includegraphics[scale=0.4]{./figures/S1_range_IR_WV_VV.png}
-\caption{Range Impulse Response for WV mode in VV polarisation}
-\label{fig:rangeIR_WV}
-\end{figure}
+.. figure:: ./figures/S1_azimuth_IR_WV_VV.png
+  :name: s1_azimuth_ir_wv_vv
+  :alt: Azimuthal Doppler spectrum
+  :scale: 90 %
+  :align: center
+
+.. figure:: ./figures/S1_range_IR_WV_VV.png
+  :alt: Range Doppler spectrum
+  :scale: 90 %
+  :name: S1_range_IR_WV_VV
+  :align: center
+
+
+Figure :numref:`Image of Sphinx (Fig. %s) <s1_azimuth_ir_iw_vv>` and :numref:`S1_range_IR_IW_VV` respectively show the centered azimuthal and slant-range Impulse Response of Sentinel-1 in VV polarization for the three sub-swath IW.
+
+Figure :numref:`Image of Sphinx (Fig. %s) <S1_azimuth_IR_WV_VV>` and :numref:`S1_range_IR_WV_VV` respectively show the centered azimuthal and slant-range Impulse Response of Sentinel-1 in VV polarization for the WV swath.
+
+
 
 The normalization with the instrument Impulse Response is realized in the Fourier domain and writes:
 
@@ -236,4 +240,5 @@ In the baseline processing, :math:`look_{width}=0.2` for IW, :math:`look_{width}
 Periodograms
 ############
 
-In practice, to reduce noise on the computed cross-spectra, the steps above are applied on regions smaller than the full image (typically  2 km X 2 km) and then are averaged. A kind of Welsh methodology.
+In practice, to reduce noise on the computed cross-spectra, the steps above are applied on regions smaller than the
+full image (typically  2 km X 2 km) and then are averaged. A kind of Welsh methodology.
