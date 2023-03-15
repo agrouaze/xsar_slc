@@ -4,7 +4,8 @@
 Algorithm L1B cross spectrum Sentinel-1
 ***************************************
 
-This page stands as the ATBD (Algorithm Technical Baseline Document) for Sentinel-1 L1B IFREMER product.
+This page stands as the A.T.B.D. (Algorithm Technical Baseline Document) for Sentinel-1 L1B IFREMER product.
+
 It describes the processing steps to transform Sentinel-1 SLC (Single Look Complex) product into a L1B.
 
 

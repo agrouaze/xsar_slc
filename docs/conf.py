@@ -103,3 +103,5 @@ Download this notebook from github_.
 """
 
 today_fmt = '%b %d %Y at %H:%M'
+
+numfig = True
