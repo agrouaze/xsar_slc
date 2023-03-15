@@ -21,7 +21,7 @@ The covariance function writes:
 .. math::
    \rho(rg,az) = IFT^{2D}\left[\Re e(XS^{n\tau})\right)
 
-where :math:`Re e` stands for the real part and where `n=2` in the baseline processing.
+where :math:`\Re e` stands for the real part and where `n=2` in the baseline processing.
 A Gaussian fit is applied on :math:`\underline{\rho}(az) = \dfrac{\rho(rg=0, az)}{\rho(rg=0, az=0)}` over the range span [-500,500] in the baseline processing.
 In the literature, the Gaussian fit can also be done over the range averaged covariance function :math:`\left\langle\rho(rg,az)\right\rangle_{rg}`.
 The Gaussian fit is realized with a least square difference cost function and a gradient descent methodology.
