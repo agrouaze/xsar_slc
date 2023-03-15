@@ -4,7 +4,7 @@ xsarslc: functions to compute cross spectra from Sentinel-1 SLC SAR products
 
 **xsarslc** is a library to compute cross spectrum from level 1 SAR SLC products. Objets manipulated are all `xarray`_.
 
-Acquisition modes handled by **xsarslc** are IW and WV.
+Acquisition modes handled by **xsarslc** are IW, EW and WV.
 
 The input `datatree`_ object can come from any reader library but the original design has been done using `xsar`_
 
@@ -43,14 +43,14 @@ Overview
     Default configuration is set to:
         * 20x20 km tiles in the bursts. (less in inter burst where we have about 3 km of overlapping).
         * 0% overlapping tiles
-        * :math:`2xtau` saved cross spectrum
+        * :math:`2.tau` saved cross spectrum
 
 
-ATBD
-....
+Algorithm Technical Baseline Document
+.....................................
 
 .. note::
-    The Algorithm Technical Baseline Document describes implemented processing steps from Sentinel-1 SLC product to cross spectra
+    The Algorithm Technical Baseline Document (ATBD) describes implemented processing steps from Sentinel-1 SLC product to cross spectra
 
 * :doc:`ATBD`
 
@@ -89,7 +89,7 @@ Last documentation build: |today|
    installing
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 18
    :hidden:
    :caption: Algorithm description
 

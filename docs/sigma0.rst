@@ -1,7 +1,7 @@
 .. _sigma0:
 
 ***************************************************
-Computation of calibrated denoised :math:`\sigma^0`
+Computation of calibrated denoised sigma0
 ***************************************************
 
 

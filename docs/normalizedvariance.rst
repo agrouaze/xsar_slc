@@ -1,8 +1,8 @@
 .. _normalizedvariance:
 
-*********************************************
-Computation of the :math:`\sigma^0` normalized variance
-*********************************************
+*******************************************************
+Computation of the sigma0 normalized variance
+*******************************************************
 
 The normalized variance is the variance of the Digital number defined over a prescribed spatial extension.
 In the baseline L1B SLC processor, the variance is computed at a tile level.
