@@ -167,6 +167,7 @@ if __name__ == '__main__':
     polarization_from_file = os.path.basename(slc_iw_path).split('-')[3]
     subsath_nickname = '%s_%s' % (subswath_number, polarization_from_file)
     safe_basename = os.path.basename(os.path.dirname(os.path.dirname(slc_iw_path)))
+    safe_basename = safe_basename.replace('SLC','XSP')
     output_filename = os.path.join(args.outputdir, args.version, safe_basename, os.path.basename(
         slc_iw_path).replace('.tiff', '') + '_L1B_xspec_IFR_' + args.version + '.nc')
     logging.info('mode dev is %s', args.dev)
