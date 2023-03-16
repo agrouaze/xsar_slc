@@ -35,3 +35,21 @@ azimuth noise and calibration LUT interpolated over the Digital Number locations
 
 .. note::
    :math:`\eta^{rg}_i` is both range and azimuth dependent and :math:`\eta^{az}_i` is azimuth dependent.
+
+
+.. image:: ./figures/NIRAN_NRCS_vv.png
+  :alt: VV
+  :scale: 100 %
+  :name: NIRAN_NRCS_VV
+  :align: center
+
+Sentinel-1 IW SLC L1B SARWAVE VV polarization sigma0 denoised (one value per intra burst tile) over Tropical Cyclone NIRAN 2021 (New Caledonia)
+
+
+.. image:: ./figures/NIRAN_NRCS_VH.png
+  :alt: VH
+  :scale: 100 %
+  :name: NIRAN_NRCS_VH
+  :align: center
+
+Sentinel-1 IW SLC L1B SARWAVE VH polarization sigma0 denoised (one value per intra burst tile) over Tropical Cyclone NIRAN 2021 (New Caledonia)
