@@ -28,7 +28,6 @@ dependencies:
   - numpy
   - pandas
   - shapely
-  - cartopy
   # processing
   - more-itertools
   - tqdm
