@@ -364,9 +364,11 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     centroid = get_centroid(mydop, dim=freq_azi_dim, method='maxfit')
     
     if 'IR' not in kwargs: # No Impulse Response has been provided
-        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)
+        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None,
+                         window=None, shift=True, true_phase=True, true_amplitude=True)
     else: # Provided IR is used to normalize slc spectra
-        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim, range_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)   
+        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim, range_dim],
+                         detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)
         mydop = (mydop/kwargs.get('IR')).fillna(0.)
         mydop = xrft.ifft(mydop, dim='freq_'+range_dim, true_phase=True, true_amplitude=True)
         mydop = mydop.drop(['k_az', 'k_srg'])
