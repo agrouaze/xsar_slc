@@ -126,6 +126,10 @@ Normalization of the Doppler spectrum by the Impulse Response of the instrument
 These Impulse Responses have been computed over homogeneous and motion-less surfaces, averaged and stored.
 The dataset used to compute theses response is available here and the numerical code to produce them here.
 
+The normalization is performed by :py:mod:`xsarslc.processing.intraburst.compute_looks` method.
+
+.. _s1_azimuth_ir_iw_vv:
+
 .. figure:: ./figures/S1_azimuth_IR_IW_VV.png
   :name: `s1_azimuth_ir_iw_vv`
   :scale: 50 %
