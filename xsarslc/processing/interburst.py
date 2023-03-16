@@ -10,7 +10,7 @@ from xsarslc.tools import xtiling, xndindex
 
 
 def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, calibration, noise_range, noise_azimuth, tile_width, tile_overlap,
-                                    lowpass_width={'sample': 1000., 'line': 1000.},
+                                    lowpass_width={'sample': 4750., 'line': 4750.},
                                     periodo_width={'sample': 2000., 'line': 1200.}, #2000 1200 en 20km# 1800 1200 en 2km
                                     periodo_overlap={'sample': 1000., 'line': 600.}, **kwargs):
     """
@@ -154,7 +154,8 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     # corner_lon = burst['longitude'][tiles_corners].rename('corner_longitude').drop(['line','sample'])
     # corner_lat = burst['latitude'][tiles_corners].rename('corner_latitude').drop(['line','sample'])
 
-    xs = list()  # np.empty(tuple(tiles_sizes.values()), dtype=object)
+    xs = list()
+    landflag = list()
     for sub0, sub1 in zip(all_tiles_0, all_tiles_1):
     # for i in xndindex(tiles_sizes):
         sub0 = sub0.swap_dims({'__line':'line', '__sample':'sample'})
@@ -168,6 +169,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
             tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
             water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
+            landflag.append(xr.DataArray(not water_only, coords=mytile, name='land_flag'))
         else:
             water_only = True
         logging.debug('water_only :  %s', water_only)
@@ -225,8 +227,11 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
             sigma0 = compute_mean_sigma0(sub0['digital_number'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
             # ------------- mean incidence ------------
             mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
+            # ------------- heading ------------
+            _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
+            ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
             # ------------- concatenate all variables ------------
-            xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset()]))
+            xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]))
 
 
     if not xs:  # All tiles are over land -> no xspectra available
@@ -239,24 +244,13 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         [x[{'freq_sample': slice(None, Nfreq_min)}].expand_dims(['tile_sample', 'tile_line']) for x in xs],
         combine_attrs='drop_conflicts')
 
-    # -------Returned xspecs have different shape in range (to keep same dk). Lines below only select common portions of xspectra-----
-    # Nfreq_min = min([xs[i].sizes['freq_sample'] for i in np.ndindex(xs.shape)])
-    # for i in np.ndindex(xs.shape):
-    # xs[i] = xs[i][{'freq_sample':slice(None,Nfreq_min)}]
-    # ------------------------------------------------
+    # ------------------- Formatting returned dataset -----------------------------
 
-    # xs = [list(a) for a in list(xs)] # must be generalized for larger number of dimensions
-    # xs = xr.combine_nested(xs, concat_dim=tiles_sizes.keys(), combine_attrs='drop_conflicts')
-
-    # taus.attrs.update({'long_name': 'delay between two successive acquisitions', 'units': 's'})
-    # cutoff.attrs.update({'long_name': 'Azimuthal cut-off', 'units': 'm'})
-
-    # tiles_middle = get_middle_tile(tiles_index)
-    # middle_lon = burst['longitude'][tiles_middle].rename('longitude')
-    # middle_lat = burst['latitude'][tiles_middle].rename('latitude')
-    # xs = xr.merge([xs, taus.to_dataset(), cutoff.to_dataset(), corner_lons.to_dataset(), corner_lats.to_dataset()],
-    #               combine_attrs='drop_conflicts')
-    xs = xr.merge([xs, corner_lons.to_dataset(), corner_lats.to_dataset()], combine_attrs='drop_conflicts')
+    corner_sample = corner_sample.unstack(dim=['flats']).drop('c_sample')
+    corner_line = corner_line.unstack(dim=['flatl']).drop('c_line')
+    corner_sample.attrs.update({'long_name':'sample number in original digital number matrix'})
+    corner_line.attrs.update({'long_name':'line number in original digital number matrix'})
+    xs = xr.merge([xs, corner_lons.to_dataset(), corner_lats.to_dataset(), corner_line.to_dataset(), corner_sample.to_dataset()], combine_attrs='drop_conflicts')
     
     xs = xs.assign_coords({'longitude': middle_lons,
                            'latitude': middle_lats})  # This line also ensures adding line/sample coordinates too !! DO NOT REMOVE
@@ -265,6 +259,10 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     xs.attrs.update({'tile_overlap_' + d: k for d, k in tile_overlap.items()})
     xs.attrs.update({'periodo_width_' + d: k for d, k in periodo_width.items()})
     xs.attrs.update({'periodo_overlap_' + d: k for d, k in periodo_overlap.items()})
+
+    landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag]) if landflag else xr.DataArray(np.nan, name='land_mask').to_dataset()
+    landflag.attrs.update({'long_name': 'land flag (True if land is present)'})
+    xs = xr.merge([xs, landflag], join = 'inner')
     return xs
 
 
@@ -305,7 +303,7 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
         image0 = (image0 - image0.mean()) / image0.mean()
         image1 = (image1 - image1.mean()) / image1.mean()
         # xspecs = xr.DataArray(np.fft.fftshift(np.fft.fft2(image1)*np.conj(np.fft.fft2(image0))), dims=['freq_'+d for d in image0.dims])
-        xspecs = xr.DataArray(np.fft.fft2(image1) * np.conj(np.fft.fft2(image0)),
+        xspecs = xr.DataArray(np.fft.fft2(image0) * np.conj(np.fft.fft2(image1)),
                               dims=['freq_' + d for d in image0.dims])
         xspecs = xspecs[{freq_rg_dim: slice(None, xspecs.sizes[
             freq_rg_dim] // 2 + 1)}]  # keeping only half of the wavespectrum (positive wavenumbers)
