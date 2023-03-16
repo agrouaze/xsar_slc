@@ -31,6 +31,7 @@ version = xsarslc.__version__
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
+    'sphinx.ext.autosectionlabel',
     'sphinx_rtd_theme',
     'nbsphinx',
     'jupyter_sphinx',
@@ -105,3 +106,5 @@ Download this notebook from github_.
 today_fmt = '%b %d %Y at %H:%M'
 
 numfig = True
+# Make sure the target is unique
+autosectionlabel_prefix_document = True
