@@ -143,7 +143,7 @@ def netcdf_compliant(dataset):
 
 def gaussian_kernel(width, spacing, truncate=3.):
     """
-    Compute a Gaussian kernel for filtering
+    Compute a Gaussian kernel for filtering. The width correspond to the wavelength that is needed to be kept. The standard deviation of the gaussian has to be width/(2 pi)
     
     Args:
         width (dict): form {name of dimension (str): width in [m] (float)}
@@ -151,12 +151,79 @@ def gaussian_kernel(width, spacing, truncate=3.):
         truncate (float): gaussian shape is truncate at +/- (truncate x width) value
     """
     gk = 1.
+    width= {d:w/(2*np.pi) for d,w in width.items()} # frequency cut off has a 2 pi factor
     for d in width.keys():
         coord = np.arange(-truncate * width[d], truncate * width[d], spacing[d])
         coord = xr.DataArray(coord, dims=d, coords={d: coord})
         gk = gk * np.exp(-coord ** 2 / (2 * width[d] ** 2))
     gk /= gk.sum()
     return gk
+
+def rect_kernel(width, spacing):
+    """
+    Compute a rectangular window kernel for filtering
+    
+    Args:
+        width (dict): form {name of dimension (str): width in [m] (float)}
+        spacing (dict): form {name of dimension (str): spacing in [m] (float)}
+    """
+    wk = 1.
+    for d in width.keys():
+        coord = np.arange(-width[d]/2, width[d]/2, spacing[d])
+        win = xr.DataArray(np.ones_like(coord), dims=d, coords={d: coord})
+        wk = wk * win
+    wk /= wk.sum()
+    return wk
+
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Compute great circle distance and bearing starting from (lon1, lat1)
+    
+    Args:
+        lon1 (float): initial longitude
+        lat1 (float): initial latitude
+        lon2 (float or array of float): final longitude
+        lat2 (float or array of float): final latitude
+    
+    Returns:
+        (tuple of array): (great cicle distance, bearing [def] from North clockwise)
+    """
+    lat2 = np.array(lat2, ndmin=1)
+    lon2 = np.array(lon2, ndmin=1)
+    Re = 6371e3 # Radius of earth
+    # convert decimal degrees to radians 
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+    v1 = np.stack([np.cos(lat1)*np.cos(lon1), np.cos(lat1)*np.sin(lon1), np.sin(lat1)])[:, np.newaxis]
+    v2 = np.stack([np.cos(lat2)*np.cos(lon2), np.cos(lat2)*np.sin(lon2), np.sin(lat2)])
+    v1v2 = (v1*v2).sum(axis=0, keepdims=True)
+    v1v1 = (v1*v1).sum(axis=0, keepdims=True)
+    w = times(v1,v2)
+    w/=np.linalg.norm(w, axis=0, keepdims=True)
+    e = times(w,v1)
+    n = np.stack([-np.sin(lat1)*np.cos(lon1), -np.sin(lat1)*np.sin(lon1), np.cos(lat1)])[:, np.newaxis]# Axis pointing to North and tangent to the sphere
+    nte = times(n,e)
+    sinb = -np.linalg.norm(nte, axis=0, keepdims=True)*np.sign((nte*v1).sum(axis=0, keepdims=True))
+    cosb = (n*e).sum(axis=0, keepdims=True)
+    a = np.arccos(v1v2)
+    b = np.degrees(np.arctan2(sinb, cosb))
+    return Re*a.squeeze(),b.squeeze()
+
+def times(a,b, axis=0):
+    """
+    cross product:  a x b assuming space dimension is on indices [0,1,2] on axis =  axis
+    a and b must have the same shape
+    
+    Args:
+        a (ndarray): first argument
+        b (ndarray): second argument
+    
+    Returns:
+        (ndarray): same shape as a and b
+    """
+    return np.stack([a.take(1, axis=axis)*b.take(2, axis=axis)-a.take(2, axis=axis)*b.take(1, axis=axis),
+    a.take(2, axis=axis)*b.take(0, axis=axis)-a.take(0, axis=axis)*b.take(2, axis=axis),
+    a.take(0, axis=axis)*b.take(1, axis=axis)-a.take(1, axis=axis)*b.take(0, axis=axis)], axis=axis)
+
 
 
 def xndindex(sizes):

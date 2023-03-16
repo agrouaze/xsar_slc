@@ -11,7 +11,7 @@ import warnings
 from tqdm import tqdm
 
 def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, noise_range, noise_azimuth, tile_width, tile_overlap,
-                           lowpass_width={'sample': 1000., 'line': 1000.},
+                           lowpass_width={'sample': 4750., 'line': 4750.},
                            periodo_width={'sample': 4000., 'line': 4000.}, #4000 en 20km # 1800 en 2km tiles
                            periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs): # half width
     """
@@ -31,7 +31,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         landmask (optional) : If provided, land mask passed to is_ocean(). Otherwise xspectra are calculated by default
         kwargs: keyword arguments passed to compute_intraburst_xspectrum()
     """
-    from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
+    from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation, haversine
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
 
 
@@ -126,7 +126,8 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
 
     # --------------------------------------------------------------------------------------
 
-    xs = list()  # np.empty(tuple(tiles_sizes.values()), dtype=object)
+    xs = list()
+    landflag = list()
     # combinaison_selection_tiles = [yy for yy in xndindex(tiles_sizes)]
     combinaison_selection_tiles = all_tiles
     pbar = tqdm(range(len(all_tiles)), desc='start')
@@ -142,9 +143,10 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
             water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
+            landflag.append(xr.DataArray(not water_only, coords=mytile, name='land_flag'))
         else:
             water_only = True
-        logging.debug('water_only : %s', water_only)
+        # logging.debug('water_only : %s', water_only)
         # ------------------------------------------------
         if water_only:
             # sub = tiled_burst[i]
@@ -199,8 +201,11 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             sigma0 = compute_mean_sigma0(DN, calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
             # ------------- mean incidence ------------
             mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
+            # ------------- heading ------------
+            _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
+            ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
             # ------------- concatenate all variables ------------
-            xs.append(xr.merge([xspecs_m, xspecs_v, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset()]))
+            xs.append(xr.merge([xspecs_m, xspecs_v, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]))
 
     if not xs:  # All tiles are over land -> no xspectra available
         return
@@ -228,6 +233,10 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
     xs.attrs.update({'tile_overlap_' + d: k for d, k in tile_overlap.items()})
     xs.attrs.update({'periodo_width_' + d: k for d, k in periodo_width.items()})
     xs.attrs.update({'periodo_overlap_' + d: k for d, k in periodo_overlap.items()})
+
+    landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag]) if landflag else xr.DataArray(np.nan, name='land_mask').to_dataset()
+    landflag.attrs.update({'long_name': 'land flag (True if land is present)'})
+    xs = xr.merge([xs, landflag], join = 'inner')
     return xs
 
 
