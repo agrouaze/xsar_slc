@@ -29,7 +29,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     Keyword Args:
         kwargs: keyword arguments passed to compute_interburst_xspectrum()
     """
-    from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
+    from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation, haversine
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
 
     # find overlapping burst portion
@@ -55,6 +55,8 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
 
     burst0 = burst0[{'line': slice(frl, None)}]
     burst1 = burst1[{'line': slice(None, burst0.sizes['line'])}]
+
+    burst0, burst1 = xr.align(burst0, burst1, join='inner', exclude = set(burst0.sizes.keys())-set(['sample'])) # this align bursts in sample direction when first valid sample are differents
 
     # if overlap0.sizes!=overlap1.sizes:
     #     raise ValueError('Overlaps have different sizes: {} and {}'.format(overlap0.sizes, overlap1.sizes))
@@ -131,9 +133,9 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     # ---------Computing quantities at tile corner locations  --------------------------
     tiles_corners = get_corner_tile(
         tiles_index)  # Having variables below at corner positions is sufficent for further calculations (and save memory space)
-    corner_sample = burst['sample'][{'sample': tiles_corners['sample']}]
+    corner_sample = burst['sample'][{'sample': tiles_corners['sample']}].rename('corner_sample')
     corner_sample = corner_sample.stack(flats=corner_sample.dims)
-    corner_line = burst['line'][{'line': tiles_corners['line']}]
+    corner_line = burst['line'][{'line': tiles_corners['line']}].rename('corner_line')
     corner_line = corner_line.stack(flatl=corner_line.dims)
     azitime_interval = burst.attrs['azimuth_time_interval']
     corner_lons = FullResolutionInterpolation(corner_line, corner_sample, 'longitude', geolocation_annotation,
