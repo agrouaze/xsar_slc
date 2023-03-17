@@ -297,7 +297,8 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
     periodo1 = mod1[periodo_slices]  # .swap_dims({'__'+d:d for d in [range_dim, azimuth_dim]})
     periodo_sizes = {d: k for d, k in periodo0.sizes.items() if 'periodo_' in d}
 
-    out = np.empty(tuple(periodo_sizes.values()), dtype=object)
+
+    out = list()
 
     for i in xndindex(periodo_sizes):
         image0 = periodo0[i].swap_dims({'__' + d: d for d in [range_dim, azimuth_dim]})
@@ -311,14 +312,10 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
             freq_rg_dim] // 2 + 1)}]  # keeping only half of the wavespectrum (positive wavenumbers)
         xspecs.data = np.fft.fftshift(xspecs.data,
                                       axes=xspecs.get_axis_num(freq_azi_dim))  # fftshifting azimuthal wavenumbers
-        out[tuple(i.values())] = xspecs
+        xspecs = xspecs.assign_coords(i)
+        out.append(xspecs)
 
-    out = [list(a) for a in list(out)]  # must be generalized for larger number of dimensions
-    out = xr.combine_nested(out, concat_dim=periodo_sizes.keys(), combine_attrs='drop_conflicts').rename(
-        'xspectra')
-
-    out = out.assign_coords(periodo0.drop(['line', 'sample']).coords)
-
+    out = xr.combine_by_coords([x.expand_dims(['periodo_sample', 'periodo_line']) for x in out], combine_attrs='drop_conflicts').rename('xspectra')
     out.attrs.update({'long_name':'successive bursts overlap cross-spectra', 'mean_incidence': mean_incidence})
 
     # dealing with wavenumbers
@@ -328,10 +325,9 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
     k_az = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(nperseg[azimuth_dim], azimuth_spacing / (2 * np.pi))),
                         dims='freq_' + azimuth_dim, name='k_az',
                         attrs={'long_name': 'wavenumber in azimuth direction', 'units': 'rad/m'})
-    # out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az}).swap_dims({'freq_'+range_dim:'k_rg', 'freq_'+azimuth_dim:'k_az'})
+    
+    out = out/(out.sizes['freq_line']*out.sizes['freq_sample'])
     out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az})
-    # out = xr.merge([out, k_rg.to_dataset(), k_az.to_dataset()],
-    #                combine_attrs='drop_conflicts')  # Adding .to_dataset() ensures promote_attrs=False
     out.attrs.update({'periodogram_nperseg_' + range_dim: nperseg[range_dim],
                       'periodogram_nperseg_' + azimuth_dim: nperseg[azimuth_dim],
                       'periodogram_noverlap_' + range_dim: noverlap[range_dim],
