@@ -276,7 +276,8 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
     periodo = periodo.drop([range_dim, azimuth_dim]).swap_dims({'__' + d: d for d in periodo_slices.keys()})
     periodo_sizes = {d: k for d, k in periodo.sizes.items() if 'periodo_' in d}
 
-    if 'IR_path' in kwargs: # Impulse Response has been provided
+    #if 'IR_path' in kwargs: # Impulse Response has been provided
+    if kwargs.get('IR_path',None):
         IR = xr.load_dataset(kwargs.pop('IR_path'))
         IR['range_IR'] = IR['range_IR'].where(IR['range_IR']>IR['range_IR'].max()/100, np.nan) # discarding portion where range IR is very low
         freq_line = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(IR.sizes['k_az'])), dims='k_az')
@@ -375,9 +376,11 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
         return
     
     if 'IR' not in kwargs: # No Impulse Response has been provided
-        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)
+        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None,
+                         window=None, shift=True, true_phase=True, true_amplitude=True)
     else: # Provided IR is used to normalize slc spectra
-        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim, range_dim], detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)   
+        mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim, range_dim],
+                         detrend=None, window=None, shift=True, true_phase=True, true_amplitude=True)
         mydop = (mydop/kwargs.get('IR')).fillna(0.)
         mydop = xrft.ifft(mydop, dim='freq_'+range_dim, true_phase=True, true_amplitude=True)
         mydop = mydop.drop(['k_az', 'k_srg'])
