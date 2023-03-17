@@ -29,7 +29,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     Keyword Args:
         kwargs: keyword arguments passed to compute_interburst_xspectrum()
     """
-    from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation
+    from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation, haversine
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
 
     # find overlapping burst portion
@@ -55,6 +55,8 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
 
     burst0 = burst0[{'line': slice(frl, None)}]
     burst1 = burst1[{'line': slice(None, burst0.sizes['line'])}]
+
+    burst0, burst1 = xr.align(burst0, burst1, join='inner', exclude = set(burst0.sizes.keys())-set(['sample'])) # this align bursts in sample direction when first valid sample are differents
 
     # if overlap0.sizes!=overlap1.sizes:
     #     raise ValueError('Overlaps have different sizes: {} and {}'.format(overlap0.sizes, overlap1.sizes))
@@ -131,9 +133,9 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     # ---------Computing quantities at tile corner locations  --------------------------
     tiles_corners = get_corner_tile(
         tiles_index)  # Having variables below at corner positions is sufficent for further calculations (and save memory space)
-    corner_sample = burst['sample'][{'sample': tiles_corners['sample']}]
+    corner_sample = burst['sample'][{'sample': tiles_corners['sample']}].rename('corner_sample')
     corner_sample = corner_sample.stack(flats=corner_sample.dims)
-    corner_line = burst['line'][{'line': tiles_corners['line']}]
+    corner_line = burst['line'][{'line': tiles_corners['line']}].rename('corner_line')
     corner_line = corner_line.stack(flatl=corner_line.dims)
     azitime_interval = burst.attrs['azimuth_time_interval']
     corner_lons = FullResolutionInterpolation(corner_line, corner_sample, 'longitude', geolocation_annotation,
@@ -295,7 +297,8 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
     periodo1 = mod1[periodo_slices]  # .swap_dims({'__'+d:d for d in [range_dim, azimuth_dim]})
     periodo_sizes = {d: k for d, k in periodo0.sizes.items() if 'periodo_' in d}
 
-    out = np.empty(tuple(periodo_sizes.values()), dtype=object)
+
+    out = list()
 
     for i in xndindex(periodo_sizes):
         image0 = periodo0[i].swap_dims({'__' + d: d for d in [range_dim, azimuth_dim]})
@@ -309,14 +312,10 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
             freq_rg_dim] // 2 + 1)}]  # keeping only half of the wavespectrum (positive wavenumbers)
         xspecs.data = np.fft.fftshift(xspecs.data,
                                       axes=xspecs.get_axis_num(freq_azi_dim))  # fftshifting azimuthal wavenumbers
-        out[tuple(i.values())] = xspecs
+        xspecs = xspecs.assign_coords(i)
+        out.append(xspecs)
 
-    out = [list(a) for a in list(out)]  # must be generalized for larger number of dimensions
-    out = xr.combine_nested(out, concat_dim=periodo_sizes.keys(), combine_attrs='drop_conflicts').rename(
-        'xspectra')
-
-    out = out.assign_coords(periodo0.drop(['line', 'sample']).coords)
-
+    out = xr.combine_by_coords([x.expand_dims(['periodo_sample', 'periodo_line']) for x in out], combine_attrs='drop_conflicts').rename('xspectra')
     out.attrs.update({'long_name':'successive bursts overlap cross-spectra', 'mean_incidence': mean_incidence})
 
     # dealing with wavenumbers
@@ -326,10 +325,9 @@ def compute_interburst_xspectrum(mod0, mod1, mean_incidence, slant_spacing, azim
     k_az = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(nperseg[azimuth_dim], azimuth_spacing / (2 * np.pi))),
                         dims='freq_' + azimuth_dim, name='k_az',
                         attrs={'long_name': 'wavenumber in azimuth direction', 'units': 'rad/m'})
-    # out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az}).swap_dims({'freq_'+range_dim:'k_rg', 'freq_'+azimuth_dim:'k_az'})
+    
+    out = out/(out.sizes['freq_line']*out.sizes['freq_sample'])
     out = out.assign_coords({'k_rg':k_rg, 'k_az':k_az})
-    # out = xr.merge([out, k_rg.to_dataset(), k_az.to_dataset()],
-    #                combine_attrs='drop_conflicts')  # Adding .to_dataset() ensures promote_attrs=False
     out.attrs.update({'periodogram_nperseg_' + range_dim: nperseg[range_dim],
                       'periodogram_nperseg_' + azimuth_dim: nperseg[azimuth_dim],
                       'periodogram_noverlap_' + range_dim: noverlap[range_dim],

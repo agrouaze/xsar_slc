@@ -418,8 +418,12 @@ def get_centroid(spectrum, dim, width=0.5, method='firstmoment'):
         a_estimate = float(spectrum[{dim: imax}])
         c_estimate = float(spectrum[dim][{dim: imax}])
         l_estimate = 0.25 * float(spectrum[dim].max() - spectrum[dim].min())
-        p, r = curve_fit(fit_gauss, fit_spectrum[dim], fit_spectrum.data, p0=[a_estimate, c_estimate, l_estimate])
-        centroid = p[1]
+        try:
+            p, r = curve_fit(fit_gauss, fit_spectrum[dim], fit_spectrum.data, p0=[a_estimate, c_estimate, l_estimate])
+            centroid = p[1]
+        except:
+            centroid = np.nan
+        
     else:
         raise ValueError('Unknown method : {}'.format(method))
 

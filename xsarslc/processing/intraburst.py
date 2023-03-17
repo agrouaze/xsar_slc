@@ -294,7 +294,8 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
     for i in xndindex(periodo_sizes):
         image = periodo[i]
         xspecs = compute_looks(image, azimuth_dim=azimuth_dim, synthetic_duration=synthetic_duration,**kwargs) 
-        out.append(xspecs)
+        if xspecs: # can be nan if centroid was not found
+            out.append(xspecs)
 
     out = xr.combine_by_coords([x.expand_dims(['periodo_sample', 'periodo_line']) for x in out], combine_attrs='drop_conflicts')
     out.attrs.update({'mean_incidence': mean_incidence})
@@ -371,6 +372,8 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
 
     mydop = xrft.power_spectrum(slc, dim=azimuth_dim)
     centroid = get_centroid(mydop, dim=freq_azi_dim, method='maxfit')
+    if not np.isfinite(centroid):
+        return
     
     if 'IR' not in kwargs: # No Impulse Response has been provided
         mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None,
