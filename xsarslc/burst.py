@@ -28,9 +28,9 @@ def burst_valid_indexes(ds):
     return fvs, lvs, fvl, lvl
 
 
-def crop_burst(ds, burst_annotation, burst_number, valid=True, merge_burst_annotation=True):
+def crop_IW_burst(ds, burst_annotation, burst_number, valid=True, merge_burst_annotation=True):
     """
-    Crop burst from the measurement dataset
+    Crop IW burst from the measurement dataset
     
     Args:
         ds (xarray.Dataset): measurement dataset
@@ -97,3 +97,12 @@ def deramp_burst(burst, dt):
         deramped_signal = (burst['digital_number'] * np.exp(-1j * phi)).rename('deramped_digital_number')
 
     return deramped_signal
+
+def crop_WV(burst):
+    """
+    Crop WV data. Removes portion of WV with zero values only and removes 25 points on each side to remove windowing effect
+    """
+    DN = burst['digital_number'].where(np.abs(burst['digital_number'])!=0., drop=True)
+    DN = DN[{'line':slice(25,-25), 'sample':slice(25,-25)}]
+    b,_= xr.align(burst,DN, join='inner')
+    return b

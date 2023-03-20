@@ -95,6 +95,7 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
         (xarray): xspectra.
     """
     from xsarslc.processing.intraburst import tile_burst_to_xspectra
+    from xsarslc.burst import crop_WV
 
     if 'IR_path' not in kwargs:
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
@@ -106,6 +107,7 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
 
     burst = dt['measurement'].ds.sel(pol=polarization)
     burst.load()
+    burst = crop_WV(burst)
     burst.attrs.update(commons)
     xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'],
                                       dt['noise_range'], dt['noise_azimuth'], tile_width, tile_overlap, **kwargs)
@@ -142,7 +144,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
         (xarray): xspectra.
     """
     from xsarslc.processing.intraburst import tile_burst_to_xspectra
-    from xsarslc.burst import crop_burst, deramp_burst
+    from xsarslc.burst import crop_IW_burst, deramp_burst
 
     if 'IR_path' not in kwargs:
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
@@ -159,7 +161,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
         nb_burst = 1
 
     for b in range(nb_burst):
-        burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
+        burst = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
         deramped_burst = deramp_burst(burst, dt)
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
         burst.load()
@@ -212,7 +214,7 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
         (xarray): xspectra.
     """
     from xsarslc.processing.interburst import tile_bursts_overlap_to_xspectra
-    from xsarslc.burst import crop_burst
+    from xsarslc.burst import crop_IW_burst
 
     commons = {'azimuth_steering_rate': dt['image']['azimuthSteeringRate'].item(),
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
@@ -224,9 +226,9 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
         logging.info('reduce number of burst -> 2')
         nb_burst = 2
     for b in range(nb_burst):
-        burst0 = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True,
+        burst0 = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True,
                             merge_burst_annotation=True).sel(pol=polarization)
-        burst1 = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b + 1, valid=True,
+        burst1 = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b + 1, valid=True,
                             merge_burst_annotation=True).sel(pol=polarization)
         burst0.attrs.update(commons)
         burst1.attrs.update(commons)
