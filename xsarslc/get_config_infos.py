@@ -15,10 +15,12 @@ def get_IR_file(unit, subswath, polarization):
         subswath str IW1, IW2, ... WV1, WV2
         polarization str VH HH VV
     """
-
+    logging.debug('unit %s %s',unit,type(unit))
+    logging.debug('subswath %s %s', subswath, type(subswath))
+    logging.debug('polarization %s %s', polarization, type(polarization))
     pathaux = os.path.abspath(os.path.join(os.path.dirname(xsarslc.__file__),'..', 'auxdata',
                                            unit + '_IRs_' + subswath + '_' + polarization + '.nc'))
-    logging.info('pathaux: %s', pathaux)
+    logging.info('expected path for auxiliary Impulse Response file : %s', pathaux)
     if os.path.exists(pathaux):
 
         return pathaux
