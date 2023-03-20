@@ -159,11 +159,6 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             mean_slant_range = float(corner_slantTimes.sel(mytile).mean()) * celerity / 2.
             mean_velocity = float(corner_velos.sel({'tile_line':sub['tile_line']}).mean())
 
-            # Below is old version when full resolution variables were systematically computed
-            # mean_incidence = float(sub.incidence.mean())
-            # mean_slant_range = float(sub.slant_range_time.mean())*celerity/2.
-            # mean_velocity = float(sub.velocity.mean())
-
             slant_spacing = float(sub['sampleSpacing'])
             ground_spacing = slant_spacing / np.sin(np.radians(mean_incidence))
             periodo_spacing = {'sample': ground_spacing, 'line': azimuth_spacing}
