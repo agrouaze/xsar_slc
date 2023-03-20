@@ -17,6 +17,9 @@ import logging
 import os
 import time
 import xsarslc
+print('xsarslc version:',xsarslc.__version__)
+print('source ',xsarslc.__file__)
+import argparse
 from xsarslc.get_config_infos import get_IR_file, get_production_version, get_default_outputdir, get_default_xspec_params, \
     get_default_landmask_dir
 
@@ -117,14 +120,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     else:
         logging.info('no inter nor intra xspectra available in this subswath')
 
-
-if __name__ == '__main__':
-    root = logging.getLogger()
-    if root.handlers:
-        for handler in root.handlers:
-            root.removeHandler(handler)
-    import argparse
-
+def main():
     time.sleep(np.random.rand(1, 1)[0][0])  # to avoid issue with mkdir
     parser = argparse.ArgumentParser(description='L1BwaveIFR_IW_SLC')
     parser.add_argument('--verbose', action='store_true', default=False)
@@ -167,7 +163,7 @@ if __name__ == '__main__':
     polarization_from_file = os.path.basename(slc_iw_path).split('-')[3]
     subsath_nickname = '%s_%s' % (subswath_number, polarization_from_file)
     safe_basename = os.path.basename(os.path.dirname(os.path.dirname(slc_iw_path)))
-    safe_basename = safe_basename.replace('SLC','XSP')
+    safe_basename = safe_basename.replace('SLC', 'XSP')
     output_filename = os.path.join(args.outputdir, args.version, safe_basename, os.path.basename(
         slc_iw_path).replace('.tiff', '') + '_L1B_xspec_IFR_' + args.version + '.nc')
     logging.info('mode dev is %s', args.dev)
@@ -180,3 +176,14 @@ if __name__ == '__main__':
                                      polarization=polarization_from_file, landmask=landmask)
     logging.info('peak memory usage: %s Mbytes', get_memory_usage())
     logging.info('done in %1.3f min', (time.time() - t0) / 60.)
+
+if __name__ == '__main__':
+    root = logging.getLogger()
+    if root.handlers:
+        for handler in root.handlers:
+            root.removeHandler(handler)
+
+
+    main()
+
+
