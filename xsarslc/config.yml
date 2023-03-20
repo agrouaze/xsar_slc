@@ -80,4 +80,29 @@ xspec_configs:
     periodo_overlap_inter:
       sample: 900
       line: 600
+  tiles19km:
+      tile_width_intra:
+        sample: 19000
+        line: 19000
+      tile_overlap_intra:
+        sample: 0
+        line: 0
+      periodo_width_intra:
+        sample: 2800
+        line: 2800
+      periodo_overlap_intra:
+        sample: 1900
+        line: 1900
+      tile_width_inter:
+        sample: 19000
+        line: 19000
+      tile_overlap_inter:
+        sample: 0
+        line: 0
+      periodo_width_inter:
+        sample: 2800
+        line: 1200
+      periodo_overlap_inter:
+        sample: 1900
+        line: 600
 
