@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 A. Grouazel
@@ -17,10 +18,11 @@ import logging
 import os
 import time
 import xsarslc
-print('xsarslc version:',xsarslc.__version__)
-print('source ',xsarslc.__file__)
+print('xsarslc version:', xsarslc.__version__)
+print('source ', xsarslc.__file__)
 import argparse
-from xsarslc.get_config_infos import get_IR_file, get_production_version, get_default_outputdir, get_default_xspec_params, \
+from xsarslc.get_config_infos import get_IR_file, get_production_version, get_default_outputdir, \
+    get_default_xspec_params, \
     get_default_landmask_dir
 
 PRODUCT_VERSION = get_production_version()  # see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
@@ -59,12 +61,6 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     dt = xsarobj.datatree
     dt.load()  # took 4min to load and 35Go RAM
     logging.info('datatree loaded %s', get_memory_usage())
-    # tile_width = {'sample': 20.e2, 'line': 20.e2} # original : 20.e3
-    # tile_width = {'sample': 20.e3, 'line': 20.e3}
-    # periodo_width = {'sample': 1800., 'line': 1800.}
-
-    # tile_overlap = {'sample': 10.e2, 'line': 10.e2}
-    # tile_overlap = {'sample': 0, 'line': 0}
     xspec_params = get_default_xspec_params(config_name=xspeconfigname)
     tile_width_intra = xspec_params['tile_width_intra']
     tile_overlap_intra = xspec_params['tile_overlap_intra']
@@ -78,7 +74,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     unit = os.path.basename(safe)[0:3]
     subswath = str_gdal.split(':')[2]
     IR_path = get_IR_file(unit, subswath, polarization.upper())
-    logging.info('impulse response file: %s',IR_path)
+    logging.info('impulse response file: %s', IR_path)
     if IR_path:
         one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt, polarization=polarization.upper(),
                                                                    dev=dev, compute_intra_xspec=True,
@@ -120,6 +116,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     else:
         logging.info('no inter nor intra xspectra available in this subswath')
 
+
 def main():
     time.sleep(np.random.rand(1, 1)[0][0])  # to avoid issue with mkdir
     parser = argparse.ArgumentParser(description='L1BwaveIFR_IW_SLC')
@@ -159,9 +156,7 @@ def main():
         landmask = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
     else:
         landmask = None
-    subswath_number = os.path.basename(slc_iw_path).split('-')[1]
     polarization_from_file = os.path.basename(slc_iw_path).split('-')[3]
-    subsath_nickname = '%s_%s' % (subswath_number, polarization_from_file)
     safe_basename = os.path.basename(os.path.dirname(os.path.dirname(slc_iw_path)))
     safe_basename = safe_basename.replace('SLC', 'XSP')
     output_filename = os.path.join(args.outputdir, args.version, safe_basename, os.path.basename(
@@ -177,13 +172,11 @@ def main():
     logging.info('peak memory usage: %s Mbytes', get_memory_usage())
     logging.info('done in %1.3f min', (time.time() - t0) / 60.)
 
+
 if __name__ == '__main__':
     root = logging.getLogger()
     if root.handlers:
         for handler in root.handlers:
             root.removeHandler(handler)
 
-
     main()
-
-
