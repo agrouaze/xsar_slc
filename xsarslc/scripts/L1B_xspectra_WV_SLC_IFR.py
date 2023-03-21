@@ -27,7 +27,7 @@ from xsarslc.get_config_infos import get_IR_file, get_production_version, get_de
     get_default_xspec_params, \
     get_default_landmask_dir
 
-PRODUCT_VERSION = get_production_version()  # see  https://github.com/umr-lops/xsar_slc/wiki/IFR--WV-processings
+PRODUCT_VERSION = get_production_version()  # see  https://github.com/umr-lops/xsar_slc/wiki/IFR-WV-processings
 
 
 def get_memory_usage():
