@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 A. Grouazel
@@ -9,6 +10,7 @@ purpose: produce nc files from SAFE IW SLC containing cartesian x-spec computed 
 import xsarslc.processing.xspectra as proc
 import warnings
 import xsar
+
 # warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore')
 import numpy as np
@@ -17,10 +19,12 @@ import logging
 import os
 import time
 import xsarslc
-print('xsarslc version:',xsarslc.__version__)
-print('source ',xsarslc.__file__)
+
+print('xsarslc version:', xsarslc.__version__)
+print('source ', xsarslc.__file__)
 import argparse
-from xsarslc.get_config_infos import get_IR_file, get_production_version, get_default_outputdir, get_default_xspec_params, \
+from xsarslc.get_config_infos import get_IR_file, get_production_version, get_default_outputdir, \
+    get_default_xspec_params, \
     get_default_landmask_dir
 
 PRODUCT_VERSION = get_production_version()  # see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
@@ -78,7 +82,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     unit = os.path.basename(safe)[0:3]
     subswath = str_gdal.split(':')[2]
     IR_path = get_IR_file(unit, subswath, polarization.upper())
-    logging.info('impulse response file: %s',IR_path)
+    logging.info('impulse response file: %s', IR_path)
     if IR_path:
         one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt, polarization=polarization.upper(),
                                                                    dev=dev, compute_intra_xspec=True,
@@ -119,6 +123,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
         logging.info('successfuly written %s', output_filename)
     else:
         logging.info('no inter nor intra xspectra available in this subswath')
+
 
 def main():
     time.sleep(np.random.rand(1, 1)[0][0])  # to avoid issue with mkdir
@@ -177,13 +182,11 @@ def main():
     logging.info('peak memory usage: %s Mbytes', get_memory_usage())
     logging.info('done in %1.3f min', (time.time() - t0) / 60.)
 
+
 if __name__ == '__main__':
     root = logging.getLogger()
     if root.handlers:
         for handler in root.handlers:
             root.removeHandler(handler)
 
-
     main()
-
-

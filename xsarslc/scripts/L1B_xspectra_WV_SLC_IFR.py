@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 A. Grouazel
@@ -7,11 +8,11 @@ purpose: produce nc files from SAFE WV SLC containing cartesian x-spec computed 
 import pdb
 import argparse
 import xsarslc.processing.xspectra as proc
-from xsarslc.processing import xspectra
 from xsarslc.tools import netcdf_compliant
 import warnings
 import xsar
-#warnings.simplefilter(action='ignore', category=FutureWarning)
+
+# warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore')
 import numpy as np
 import datetime
@@ -19,20 +20,32 @@ import logging
 import os
 import time
 import xsarslc
-print('xsarslc version:',xsarslc.__version__)
-print('source ',xsarslc.__file__)
-from xsarslc.get_config_infos import get_IR_file, get_production_version, get_default_outputdir, get_default_xspec_params, \
+
+print('xsarslc version:', xsarslc.__version__)
+print('source ', xsarslc.__file__)
+from xsarslc.get_config_infos import get_IR_file, get_production_version, get_default_outputdir, \
+    get_default_xspec_params, \
     get_default_landmask_dir
-PRODUCT_VERSION = get_production_version()  # see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
+
+PRODUCT_VERSION = get_production_version()  # see  https://github.com/umr-lops/xsar_slc/wiki/IFR--WV-processings
+
+
 def get_memory_usage():
+    """
+    Args:
+
+    Returns:
+
+    """
     try:
         import resource
-        memory_used_go = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000./1000.
-    except: #on windows resource is not usable
+        memory_used_go = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000. / 1000.
+    except:  # on windows resource is not usable
         import psutil
         memory_used_go = psutil.virtual_memory().used / 1000 / 1000 / 1000.
-    str_mem = 'RAM usage: %1.1f Go'%memory_used_go
+    str_mem = 'RAM usage: %1.1f Go' % memory_used_go
     return str_mem
+
 
 def main():
     time.sleep(np.random.rand(1, 1)[0][0])  # to avoid issue with mkdir
@@ -95,16 +108,18 @@ def main():
     logging.info('done in %1.3f min', (time.time() - t0) / 60.)
 
 
-def generate_WV_L1Bxspec_product(slc_wv_path,output_filename, xspeconfigname,polarization=None,dev=False,landmask=None):
+def generate_WV_L1Bxspec_product(slc_wv_path, output_filename, xspeconfigname, polarization=None, dev=False,
+                                 landmask=None):
     """
+    Args:
+        slc_wv_path: str full path of .tiff file
+        output_filename : str full path
+        xspeconfigname : str (eg 'tiles20km')
+        polarization : str : VV VH HH HV [optional]
+        dev: bool: allow to shorten the processing
+        landmask : landmask obj (eg : cartopy.feature.NaturalEarthFeature() )
+    Return:
 
-    :param tiff: str full path
-    :param output_filename : str full path
-    :param xspeconfigname : str (eg 'tiles20km')
-    :param polarization : str : VV VH HH HV [optional]
-    :apram dev: bool: allow to shorten the processing
-    :param landmask : landmask obj (eg : cartopy.feature.NaturalEarthFeature() )
-    :return:
     """
     safe = os.path.dirname(os.path.dirname(slc_wv_path))
     logging.info('start loading the datatree %s', get_memory_usage())
@@ -121,23 +136,23 @@ def generate_WV_L1Bxspec_product(slc_wv_path,output_filename, xspeconfigname,pol
     chunksize = {'line': 6000, 'sample': 7000}
     xsarobj = xsar.Sentinel1Dataset(str_gdal, chunks=chunksize)
     dt = xsarobj.datatree
-    dt.load() #took ?min to load and ? Go RAM
-    logging.info('datatree loaded %s',get_memory_usage())
+    dt.load()  # took ?min to load and ? Go RAM
+    logging.info('datatree loaded %s', get_memory_usage())
     unit = os.path.basename(safe)[0:3]
     subswath = str(dt['image'].ds['swath_subswath'].values)
     IR_path = get_IR_file(unit, subswath, polarization.upper())
     xs0 = proc.compute_WV_intraburst_xspectra(dt=dt,
-                                         polarization=polarization,
+                                              polarization=polarization,
                                               tile_width_intra=tile_width_intra,
                                               tile_overlap_intra=tile_overlap_intra,
                                               periodo_width_intra=periodo_width_intra,
                                               periodo_overlap_intra=periodo_overlap_intra,
-                                         #      periodo_width={"line": 2000, "sample": 2000},
-                                         # periodo_overlap={"line": 1000, "sample": 1000},
-                                              IR_path=IR_path)
-    #xs = xs0.swap_dims({'freq_line': 'k_az', 'freq_sample': 'k_rg'})
-    #xs = xspectra.symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az')
-    xs = netcdf_compliant(xs0) # to split complex128 variables into real and imag part
+                                              #      periodo_width={"line": 2000, "sample": 2000},
+                                              # periodo_overlap={"line": 1000, "sample": 1000},
+                                              IR_path=IR_path, dev=dev, landmask=landmask)
+    # xs = xs0.swap_dims({'freq_line': 'k_az', 'freq_sample': 'k_rg'})
+    # xs = xspectra.symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az')
+    xs = netcdf_compliant(xs0)  # to split complex128 variables into real and imag part
     xs = xs.drop('pol')
     if 'spatial_ref' in xs:
         xs = xs.drop('spatial_ref')
@@ -149,8 +164,8 @@ def generate_WV_L1Bxspec_product(slc_wv_path,output_filename, xspeconfigname,pol
         xs.attrs['processor'] = __file__
         xs.attrs['generation_date'] = datetime.datetime.today().strftime('%Y-%b-%d')
         if not os.path.exists(os.path.dirname(output_filename)):
-            os.makedirs(os.path.dirname(output_filename),0o0775)
-            logging.info('makedir %s',os.path.dirname(output_filename))
+            os.makedirs(os.path.dirname(output_filename), 0o0775)
+            logging.info('makedir %s', os.path.dirname(output_filename))
         xs.attrs['footprint'] = str(xs.attrs['footprint'])
         xs.attrs['tile_width_sample'] = str(xs.attrs['tile_width_sample'].values)
         xs.attrs['multidataset'] = str(xs.attrs['multidataset'])
