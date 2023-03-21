@@ -10,7 +10,6 @@ purpose: produce nc files from SAFE IW SLC containing cartesian x-spec computed 
 import xsarslc.processing.xspectra as proc
 import warnings
 import xsar
-
 # warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore')
 import numpy as np
@@ -19,7 +18,6 @@ import logging
 import os
 import time
 import xsarslc
-
 print('xsarslc version:', xsarslc.__version__)
 print('source ', xsarslc.__file__)
 import argparse
@@ -63,12 +61,6 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     dt = xsarobj.datatree
     dt.load()  # took 4min to load and 35Go RAM
     logging.info('datatree loaded %s', get_memory_usage())
-    # tile_width = {'sample': 20.e2, 'line': 20.e2} # original : 20.e3
-    # tile_width = {'sample': 20.e3, 'line': 20.e3}
-    # periodo_width = {'sample': 1800., 'line': 1800.}
-
-    # tile_overlap = {'sample': 10.e2, 'line': 10.e2}
-    # tile_overlap = {'sample': 0, 'line': 0}
     xspec_params = get_default_xspec_params(config_name=xspeconfigname)
     tile_width_intra = xspec_params['tile_width_intra']
     tile_overlap_intra = xspec_params['tile_overlap_intra']
@@ -164,9 +156,7 @@ def main():
         landmask = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
     else:
         landmask = None
-    subswath_number = os.path.basename(slc_iw_path).split('-')[1]
     polarization_from_file = os.path.basename(slc_iw_path).split('-')[3]
-    subsath_nickname = '%s_%s' % (subswath_number, polarization_from_file)
     safe_basename = os.path.basename(os.path.dirname(os.path.dirname(slc_iw_path)))
     safe_basename = safe_basename.replace('SLC', 'XSP')
     output_filename = os.path.join(args.outputdir, args.version, safe_basename, os.path.basename(

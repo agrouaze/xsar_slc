@@ -147,8 +147,6 @@ def generate_WV_L1Bxspec_product(slc_wv_path, output_filename, xspeconfigname, p
                                               tile_overlap_intra=tile_overlap_intra,
                                               periodo_width_intra=periodo_width_intra,
                                               periodo_overlap_intra=periodo_overlap_intra,
-                                              #      periodo_width={"line": 2000, "sample": 2000},
-                                              # periodo_overlap={"line": 1000, "sample": 1000},
                                               IR_path=IR_path, dev=dev, landmask=landmask)
     # xs = xs0.swap_dims({'freq_line': 'k_az', 'freq_sample': 'k_rg'})
     # xs = xspectra.symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az')
