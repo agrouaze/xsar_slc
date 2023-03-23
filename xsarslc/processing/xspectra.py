@@ -181,7 +181,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
         xspectra = xr.align(*xspectra,exclude=set(xspectra[0].dims.keys())-set(['tile_sample', 'tile_line']), join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
         xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
         dims_to_transpose = [d for d in ['burst', 'tile_sample', 'tile_line', 'freq_sample', 'freq_line'] if
-                             d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
+                             d in xspectra.dims]  # for homogeneous order of dimensions with interburst
         xspectra = xspectra.transpose(*dims_to_transpose, ...)
 
 
