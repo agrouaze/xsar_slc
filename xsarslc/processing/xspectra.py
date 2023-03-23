@@ -138,7 +138,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
         periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(). landmask, IR_path are valid entries
+        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(). landmask, IR_path, burst_list are valid entries
         
     Return:
         (xarray): xspectra.
@@ -208,7 +208,7 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
         periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra(). landmask is valid entries
+        kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra(). landmask, burst_list is valid entries
         
     Return:
         (xarray): xspectra.
