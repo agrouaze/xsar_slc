@@ -177,14 +177,14 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     if xspectra:
         Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
-        # xspectra = xr.combine_by_coords([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra],
-        # combine_attrs='drop_conflicts')  # rearange xs on burst
-        # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
-        # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
-        xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
+        xspectra = [x[{'freq_sample': slice(None, Nfreq_min)}].assign_coords({'tile_sample':range(x.sizes['tile_sample']), 'tile_line':range(x.sizes['tile_line'])}) for x in xspectra] # coords assignement is for alignment below
+        xspectra = xr.align(*xspectra,exclude=set(xspectra[0].dims.keys())-set(['tile_sample', 'tile_line']), join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
+        xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
         dims_to_transpose = [d for d in ['burst', 'tile_sample', 'tile_line', 'freq_sample', 'freq_line'] if
-                             d in xspectra.dims]  # for homogeneous order of dimensions with interburst
+                             d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
         xspectra = xspectra.transpose(*dims_to_transpose, ...)
+
+
     return xspectra
 
 
@@ -247,9 +247,9 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     if xspectra:
         Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
-        xspectra = [x[{'freq_sample': slice(None, Nfreq_min)}].assign_coords({'tile_sample':range(x.sizes['tile_sample'])}) for x in xspectra] # coords assignement is for alignment below
-        xspectra = xr.align(*xspectra,exclude=set(xspectra[0].dims.keys())-set(['tile_sample']), join='outer') # tile sample are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
-        xspectra = xr.combine_by_coords([x.drop('tile_sample').expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
+        xspectra = [x[{'freq_sample': slice(None, Nfreq_min)}].assign_coords({'tile_sample':range(x.sizes['tile_sample']), 'tile_line':range(x.sizes['tile_line'])}) for x in xspectra] # coords assignement is for alignment below
+        xspectra = xr.align(*xspectra,exclude=set(xspectra[0].dims.keys())-set(['tile_sample', 'tile_line']), join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
+        xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
         dims_to_transpose = [d for d in ['burst', 'tile_sample', 'tile_line', 'freq_sample', 'freq_line'] if
                              d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
         xspectra = xspectra.transpose(*dims_to_transpose, ...)

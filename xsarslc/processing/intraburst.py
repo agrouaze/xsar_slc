@@ -151,7 +151,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             landflag.append(xr.DataArray(not water_only, coords=mytile, name='land_flag'))
         else:
             water_only = True
-        print('water only : ', water_only)
+        # print('water only : ', water_only)
         # logging.debug('water_only : %s', water_only)
         # ------------------------------------------------
         if water_only:
