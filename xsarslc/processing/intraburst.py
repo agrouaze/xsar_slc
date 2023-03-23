@@ -151,6 +151,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             landflag.append(xr.DataArray(not water_only, coords=mytile, name='land_flag'))
         else:
             water_only = True
+        # print('water only : ', water_only)
         # logging.debug('water_only : %s', water_only)
         # ------------------------------------------------
         if water_only:
@@ -202,6 +203,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             # ------------- mean incidence ------------
             mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
             # ------------- heading ------------
+            # heding below is computed on one border of the tile. It should be evaluated at the middle of the tile (maybe)    
             _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
             ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
             # ------------- concatenate all variables ------------

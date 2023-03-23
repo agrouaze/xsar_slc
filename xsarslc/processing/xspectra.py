@@ -138,7 +138,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
         periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(). landmask, IR_path are valid entries
+        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(). landmask, IR_path, burst_list are valid entries
         
     Return:
         (xarray): xspectra.
@@ -153,14 +153,14 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
     xspectra = list()
-    nb_burst = dt['bursts'].sizes['burst']
-    dev = kwargs.get('dev', False)
 
+    burst_list = kwargs.pop('burst_list', dt['bursts'].ds['burst'].data) # this is a list of burst number (not burst index)
+    dev = kwargs.get('dev', False)
     if dev:
         logging.info('reduce number of burst -> 1')
-        nb_burst = 1
+        burst_list = burst_list[0] if len(burst_list)>0 else []
 
-    for b in range(nb_burst):
+    for b in burst_list:
         burst = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
         deramped_burst = deramp_burst(burst, dt)
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
@@ -177,14 +177,14 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     if xspectra:
         Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
-        # xspectra = xr.combine_by_coords([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra],
-        # combine_attrs='drop_conflicts')  # rearange xs on burst
-        # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
-        # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
-        xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
+        xspectra = [x[{'freq_sample': slice(None, Nfreq_min)}].assign_coords({'tile_sample':range(x.sizes['tile_sample']), 'tile_line':range(x.sizes['tile_line'])}) for x in xspectra] # coords assignement is for alignment below
+        xspectra = xr.align(*xspectra,exclude=set(xspectra[0].dims.keys())-set(['tile_sample', 'tile_line']), join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
+        xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
         dims_to_transpose = [d for d in ['burst', 'tile_sample', 'tile_line', 'freq_sample', 'freq_line'] if
                              d in xspectra.dims]  # for homogeneous order of dimensions with interburst
         xspectra = xspectra.transpose(*dims_to_transpose, ...)
+
+
     return xspectra
 
 
@@ -208,7 +208,7 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
         periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra(). landmask is valid entries
+        kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra(). landmask, burst_list is valid entries
         
     Return:
         (xarray): xspectra.
@@ -220,12 +220,15 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
     xspectra = list()
-    nb_burst = dt['bursts'].sizes['burst'] - 1
+
+    burst_list = kwargs.pop('burst_list', dt['bursts'].ds['burst'].data) # this is a list of burst number (not burst index)
     dev = kwargs.get('dev', False)
     if dev:
-        logging.info('reduce number of burst -> 2')
-        nb_burst = 2
-    for b in range(nb_burst):
+        logging.info('reduce number of burst -> 1')
+        burst_list = burst_list[0] if len(burst_list)>0 else []
+
+
+    for b in burst_list[:-1]:
         burst0 = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True,
                             merge_burst_annotation=True).sel(pol=polarization)
         burst1 = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b + 1, valid=True,
@@ -244,11 +247,9 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
     # -------Returned xspecs have different shape in range (between burst). Lines below only select common portions of xspectra-----
     if xspectra:
         Nfreq_min = min([x.sizes['freq_sample'] for x in xspectra])
-        # xspectra = xr.combine_by_coords([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra],
-        # combine_attrs='drop_conflicts')  # rearange xs on burst
-        # Nfreq_min = min([xs.sizes['freq_sample'] for xs in xspectra])
-        # xspectra = [xs[{'freq_sample':slice(None, Nfreq_min)}] for xs in xspectra]
-        xspectra = xr.concat([x[{'freq_sample': slice(None, Nfreq_min)}] for x in xspectra], dim='burst')
+        xspectra = [x[{'freq_sample': slice(None, Nfreq_min)}].assign_coords({'tile_sample':range(x.sizes['tile_sample']), 'tile_line':range(x.sizes['tile_line'])}) for x in xspectra] # coords assignement is for alignment below
+        xspectra = xr.align(*xspectra,exclude=set(xspectra[0].dims.keys())-set(['tile_sample', 'tile_line']), join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
+        xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
         dims_to_transpose = [d for d in ['burst', 'tile_sample', 'tile_line', 'freq_sample', 'freq_line'] if
                              d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
         xspectra = xspectra.transpose(*dims_to_transpose, ...)
