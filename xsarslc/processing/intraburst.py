@@ -181,6 +181,12 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             xspecs = compute_intraburst_xspectrum(mod, mean_incidence, slant_spacing, azimuth_spacing,
                                                   synthetic_duration, nperseg=nperseg_periodo,
                                                   noverlap=noverlap_periodo, **kwargs)
+
+
+            print('if we were not able to compute xspecs, we may want to still have other variables (see with collaborators)')
+
+            if not xspecs: # no xspecs have been calculated (could be undefined centroid,)
+                continue
             xspecs_m = xspecs.mean(dim=['periodo_line', 'periodo_sample'],
                                    keep_attrs=True)  # averaging all the periodograms in each tile
             xspecs_v = xspecs.drop_vars(set(xspecs.keys())-set([v for v in xspecs.keys() if 'xspectra' in v])) # keeping only xspectra before evaluating variance below
@@ -293,6 +299,9 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
         xspecs = compute_looks(image, azimuth_dim=azimuth_dim, synthetic_duration=synthetic_duration,**kwargs) 
         if xspecs: # can be nan if centroid was not found
             out.append(xspecs)
+
+    if not out : # no xspectrum  has been evaluated due to undefined centroids
+        return
 
     out = xr.combine_by_coords([x.expand_dims(['periodo_sample', 'periodo_line']) for x in out], combine_attrs='drop_conflicts')
     out.attrs.update({'mean_incidence': mean_incidence})

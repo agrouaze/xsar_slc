@@ -101,7 +101,6 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
-               # 'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
                'swath': dt.attrs['swath']}
 
