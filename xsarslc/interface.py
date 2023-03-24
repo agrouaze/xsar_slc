@@ -11,7 +11,7 @@ import argparse
 
 def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sample':400,'line':400}, tile_width = {'sample':17600.,'line':17600.}, window='GAUSSIAN', **kwargs):
     """
-    compute low resolution nrcs tiles from L1B SLC product
+    compute low resolution sigma0 tiles from L1B SLC product
     Args:
         file_path (str): path to the L1B SLC product
         xspectra (str): 'intra' or 'inter'
@@ -21,7 +21,7 @@ def get_low_res_tiles_from_L1BSLC(file_path, xspectra = 'intra', posting = {'sam
     keyword Args:
         resolution (dict, optional): resolution for filter. default is twice the posting (Nyquist)
     Returns:
-        (xarray.DataArray) low resolution tile with field "nrcs"
+        (xarray.DataArray) low resolution tile with field "sigma0"
     """
     import datatree
     dt = datatree.open_datatree(file_path)
@@ -60,7 +60,7 @@ def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None, w
         resolution (dict, optional): resolution for filter. default is twice the posting (Nyquist)
         window (str, optional): Name of window used to smooth out the data. 'GAUSSIAN' and 'RECT' are valid entries
     Returns:
-        (xarray.Dataset) : dataset of filtered/resampled nrcs
+        (xarray.Dataset) : dataset of filtered/resampled sigma0
     """
     from scipy.signal import fftconvolve
     from xsarslc.tools import gaussian_kernel, rect_kernel
@@ -68,8 +68,8 @@ def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None, w
     if resolution is None:
         resolution = {d:2*v for d,v in posting.items()}
 
-    nrcs = tile['nrcs']
-    mask = np.isfinite(nrcs)
+    sigma0 = tile['sigma0']
+    mask = np.isfinite(sigma0)
     if window.upper() == 'GAUSSIAN':
         kernel_filter = gaussian_kernel(width=resolution, spacing=spacing)
     elif window.upper() == 'RECT':
@@ -79,7 +79,7 @@ def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None, w
     swap_dims = {d: d + '_' for d in resolution.keys()}
     kernel_filter = kernel_filter.rename(swap_dims)
 
-    low_pass = xr.apply_ufunc(fftconvolve, nrcs.where(mask, 0.), kernel_filter,
+    low_pass = xr.apply_ufunc(fftconvolve, sigma0.where(mask, 0.), kernel_filter,
                                         input_core_dims=[resolution.keys(), swap_dims.values()], vectorize=True,
                                         output_core_dims=[resolution.keys()], kwargs={'mode': 'same'}, dask='allowed')
 
@@ -92,15 +92,18 @@ def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None, w
     Np = {d:np.rint(tile_width[d]/posting[d]).astype(int) for d in tile_width.keys()}
     new_line = xr.DataArray(int(low_pass['line'].isel(line=low_pass.sizes['line']//2))+np.arange(-Np['line']//2,Np['line']//2)*float(posting['line']/spacing['line']), dims='azimuth')
     new_sample = xr.DataArray(int(low_pass['sample'].isel(sample=low_pass.sizes['sample']//2))+np.arange(-Np['sample']//2,Np['sample']//2)*float(posting['sample']/spacing['sample']), dims='range')
-    decimated = low_pass.interp(sample=new_sample, line=new_line, assume_sorted=True).rename('nrcs')
+    decimated = low_pass.interp(sample=new_sample, line=new_line, assume_sorted=True).rename('sigma0')
     corner_lat = tile['corner_latitude'].interp(c_sample = decimated['sample'][[0,-1]], c_line = decimated['line'][[0,-1]]).rename({'range':'c_range', 'azimuth':'c_azimuth'})
     corner_lon = tile['corner_longitude'].interp(c_sample = decimated['sample'][[0,-1]], c_line = decimated['line'][[0,-1]]).rename({'range':'c_range', 'azimuth':'c_azimuth'})
     decimated = decimated.drop_vars(['line','sample'])
+    decimated.attrs.update(sigma0.attrs)
     corner_lat = corner_lat.drop_vars(['line','sample', 'c_line', 'c_sample'])
     corner_lon = corner_lon.drop_vars(['line','sample', 'c_line', 'c_sample'])
     range_spacing = xr.DataArray(posting['sample'], attrs={'units':'m', 'long_name':'ground range spacing'}, name='range_spacing')
     azimuth_spacing = xr.DataArray(posting['line'], attrs={'units':'m', 'long_name':'azimuth spacing'}, name='azimuth_spacing')
-    decimated = xr.merge([decimated.to_dataset(),corner_lat.to_dataset(), corner_lon.to_dataset(), range_spacing.to_dataset(), azimuth_spacing.to_dataset()])
+    heading = tile['heading']
+    decimated = xr.merge([decimated.to_dataset(),corner_lat.to_dataset(), corner_lon.to_dataset(), range_spacing.to_dataset(), azimuth_spacing.to_dataset(), heading.to_dataset()])
+    decimated = decimated.transpose('azimuth', 'range', 'c_azimuth', 'c_range', ...)
     return decimated
 
 def get_tiles_from_L1B_SLC(L1B, polarization=None):
@@ -117,7 +120,7 @@ def get_tiles_from_L1B_SLC(L1B, polarization=None):
     dt = xsar.open_datatree(slc_path)
     if polarization is None:
         if np.asarray(L1B['pol']).size>1:
-            raise ValueError('More than one polarization found in provided L1B. Please choose only one')
+            raise ValueError('More than one polarization found in provided L1B. Please, specify polarization explicitely')
         else:
             polarization = L1B['pol'].item()
     DN = dt['measurement']['digital_number'].sel(pol=polarization)
@@ -129,17 +132,17 @@ def get_tiles_from_L1B_SLC(L1B, polarization=None):
     DN_tiles = new_get_tiles(DN, tiles_index)
     
     noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True))*(range_noise_lut.interp_like(DN, assume_sorted=True))
-    nrcs = list()
+    sigma0 = list()
     for DN in DN_tiles:
-        calibrated_DN = ((np.abs(DN)**2-noise)/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)).rename('nrcs')
+        calibrated_DN = ((np.abs(DN)**2-noise)/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)).rename('sigma0')
         calibrated_DN.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
         tile_coords = {'burst':calibrated_DN['burst'], 'tile_line':calibrated_DN['tile_line'], 'tile_sample':calibrated_DN['tile_sample']}
         calibrated_DN = calibrated_DN.assign_coords({'longitude':L1B['longitude'].sel(tile_coords).item(),'latitude':L1B['latitude'].sel(tile_coords).item()})
-        added_variables = [L1B[v].sel(tile_coords).to_dataset() for v in ['incidence','corner_longitude', 'corner_latitude']]
+        added_variables = [L1B[v].sel(tile_coords).to_dataset() for v in ['incidence','corner_longitude', 'corner_latitude', 'heading']] # add variables from L1B to output
         calibrated_DN = xr.merge([calibrated_DN,*added_variables, sample_spacing.to_dataset(), line_spacing.to_dataset()])
         calibrated_DN = calibrated_DN.assign_coords({'c_sample':L1B.sel(tile_coords)['corner_sample'].data, 'c_line':L1B.sel(tile_coords)['corner_line'].data})
-        nrcs.append(calibrated_DN)
-    return nrcs
+        sigma0.append(calibrated_DN)
+    return sigma0
 
 def get_tiles_index_from_L1B_SLC(L1B):
     """
