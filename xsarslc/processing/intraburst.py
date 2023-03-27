@@ -140,6 +140,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         pbar.set_description('loop on %s/%s tiles' % (ii+1,len(combinaison_selection_tiles)))
         sub = all_tiles[ii].swap_dims({'__line':'line', '__sample':'sample'})
         mytile = {'tile_sample':sub['tile_sample'], 'tile_line':sub['tile_line']}
+        variables_list = list() # list of variables to be stored for this tile
 
         # ------ checking if we are over water only ------
         if kwargs.get('landmask', None):
@@ -151,17 +152,33 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             landflag.append(xr.DataArray(not water_only, coords=mytile, name='land_flag'))
         else:
             water_only = True
-        # print('water only : ', water_only)
-        # logging.debug('water_only : %s', water_only)
+            landflag.append(xr.DataArray(np.nan, coords=mytile, name='land_flag'))
         # ------------------------------------------------
-        if water_only:
-            # sub = tiled_burst[i]
-            mean_incidence = float(corner_incs.sel(mytile).mean())
-            mean_slant_range = float(corner_slantTimes.sel(mytile).mean()) * celerity / 2.
-            mean_velocity = float(corner_velos.sel({'tile_line':sub['tile_line']}).mean())
+        
+        mean_incidence = float(corner_incs.sel(mytile).mean())
+        mean_slant_range = float(corner_slantTimes.sel(mytile).mean()) * celerity / 2.
+        mean_velocity = float(corner_velos.sel({'tile_line':sub['tile_line']}).mean())
 
-            slant_spacing = float(sub['sampleSpacing'])
-            ground_spacing = slant_spacing / np.sin(np.radians(mean_incidence))
+        slant_spacing = float(sub['sampleSpacing'])
+        ground_spacing = slant_spacing / np.sin(np.radians(mean_incidence))
+
+        DN = sub['digital_number'] if sub.swath=='WV' else sub['deramped_digital_number']
+        mod = compute_modulation(DN, lowpass_width=lowpass_width,
+                                 spacing={'sample': ground_spacing, 'line': azimuth_spacing})
+            
+        # ------------- nv ------------
+        nv = compute_normalized_variance(mod)
+        # ------------- mean sigma0 ------------
+        sigma0 = compute_mean_sigma0(DN, calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
+        # ------------- mean incidence ------------
+        mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
+        # ------------- heading ------------
+        # heding below is computed on one border of the tile. It should be evaluated at the middle of the tile (maybe)    
+        _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
+        ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
+        variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]
+
+        if water_only:
             periodo_spacing = {'sample': ground_spacing, 'line': azimuth_spacing}
             nperseg_periodo = {d: int(np.rint(periodo_width[d] / periodo_spacing[d])) for d in tile_width.keys()}
             noverlap_periodo = {d: int(np.rint(periodo_overlap[d] / periodo_spacing[d])) for d in tile_width.keys()}
@@ -174,50 +191,40 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             # azimuth_spacing = float(sub['lineSpacing'])
             synthetic_duration = celerity * mean_slant_range / (
                         2 * burst.attrs['radar_frequency'] * mean_velocity * azimuth_spacing)
-
-            DN = sub['digital_number'] if sub.swath=='WV' else sub['deramped_digital_number']
-            mod = compute_modulation(DN, lowpass_width=lowpass_width,
-                                     spacing={'sample': ground_spacing, 'line': azimuth_spacing})
-            xspecs = compute_intraburst_xspectrum(mod, mean_incidence, slant_spacing, azimuth_spacing,
+            xspecs = compute_intraburst_xspectrum(mod, float(mean_incidence), slant_spacing, azimuth_spacing,
                                                   synthetic_duration, nperseg=nperseg_periodo,
                                                   noverlap=noverlap_periodo, **kwargs)
-            xspecs_m = xspecs.mean(dim=['periodo_line', 'periodo_sample'],
-                                   keep_attrs=True)  # averaging all the periodograms in each tile
-            xspecs_v = xspecs.drop_vars(set(xspecs.keys())-set([v for v in xspecs.keys() if 'xspectra' in v])) # keeping only xspectra before evaluating variance below
-            xspecs_v = xspecs_v.var(dim=['periodo_line', 'periodo_sample'], keep_attrs=False)  # variance of periodograms in each tile
-            xspecs_v = xspecs_v.rename({x:'var_'+x for x in xspecs_v.keys()}) # renaming variance xspectra
-            
-            # ------------- tau ----------------
-            tau = float(xspecs_m.attrs.pop('tau'))
-            tau = xr.DataArray(float(tau), name='tau', attrs={'long_name': 'delay between two successive looks', 'units': 's'})
-            # ------------- cut-off ------------
-            cutoff_tau = [str(i) + 'tau' for i in [3, 2, 1, 0] if str(i) + 'tau' in xspecs_m.dims][0]  # tau used to compute azimuthal cutoff
-            xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
-                {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
-            cutoff = compute_azimuth_cutoff(xs_cut)
-            cutoff.attrs.update({'long_name':cutoff.attrs['long_name']+' ('+cutoff_tau+')'})
-            # ------------- nv ------------
-            nv = compute_normalized_variance(mod)
-            # ------------- mean sigma0 ------------
-            sigma0 = compute_mean_sigma0(DN, calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
-            # ------------- mean incidence ------------
-            mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
-            # ------------- heading ------------
-            # heding below is computed on one border of the tile. It should be evaluated at the middle of the tile (maybe)    
-            _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
-            ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
-            # ------------- concatenate all variables ------------
-            xs.append(xr.merge([xspecs_m, xspecs_v, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]))
 
-    if not xs:  # All tiles are over land -> no xspectra available
+            if xspecs: # no xspecs have been calculated (could be undefined centroid,)
+                xspecs_m = xspecs.mean(dim=['periodo_line', 'periodo_sample'],
+                                       keep_attrs=True)  # averaging all the periodograms in each tile
+                xspecs_v = xspecs.drop_vars(set(xspecs.keys())-set([v for v in xspecs.keys() if 'xspectra' in v])) # keeping only xspectra before evaluating variance below
+                xspecs_v = xspecs_v.var(dim=['periodo_line', 'periodo_sample'], keep_attrs=False)  # variance of periodograms in each tile
+                xspecs_v = xspecs_v.rename({x:'var_'+x for x in xspecs_v.keys()}) # renaming variance xspectra
+                
+                # ------------- tau ----------------
+                tau = float(xspecs_m.attrs.pop('tau'))
+                tau = xr.DataArray(float(tau), name='tau', attrs={'long_name': 'delay between two successive looks', 'units': 's'})
+
+                # ------------- cut-off ------------
+                cutoff_tau = [str(i) + 'tau' for i in [3, 2, 1, 0] if str(i) + 'tau' in xspecs_m.dims][0]  # tau used to compute azimuthal cutoff
+                xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
+                    {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
+                cutoff = compute_azimuth_cutoff(xs_cut)
+                cutoff.attrs.update({'long_name':cutoff.attrs['long_name']+' ('+cutoff_tau+')'})
+
+                variables_list+=[xspecs_m, xspecs_v, tau.to_dataset(), cutoff.to_dataset()]
+        # ------------- concatenate all variables ------------
+        xs.append(xr.merge(variables_list))
+
+    if not xs: 
         return
     
     # -------Returned xspecs have different shape in range (to keep same dk). Lines below only select common portions of xspectra-----
-    Nfreq_min = min([x.sizes['freq_sample'] for x in xs])
+    Nfreq_min = min([x.sizes['freq_sample'] if 'freq_sample' in x.dims else np.nan for x in xs if 'freq_sample' in x.dims])
     # line below rearange xs on (tile_sample, tile_line) grid and expand_dims ensures rearangment in combination by coords
-    xs = xr.combine_by_coords(
-        [x[{'freq_sample': slice(None, Nfreq_min)}].expand_dims(['tile_sample', 'tile_line']) for x in xs],
-        combine_attrs='drop_conflicts')
+    xs = [x[{'freq_sample': slice(None, Nfreq_min)}] if 'freq_sample' in x.dims else x for x in xs]
+    xs = xr.combine_by_coords([x.expand_dims(['tile_sample', 'tile_line']) for x in xs], combine_attrs='drop_conflicts')
 
     # ------------------- Formatting returned dataset -----------------------------
 
@@ -236,9 +243,9 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
     xs.attrs.update({'periodo_width_' + d: k for d, k in periodo_width.items()})
     xs.attrs.update({'periodo_overlap_' + d: k for d, k in periodo_overlap.items()})
 
-    landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag]) if landflag else xr.DataArray(np.nan, name='land_mask').to_dataset()
-    landflag.attrs.update({'long_name': 'land flag (True if land is present)'})
-    xs = xr.merge([xs, landflag], join = 'inner')
+    landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag])['land_flag'] if landflag else xr.DataArray(np.nan, name='land_mask')
+    landflag.attrs.update({'long_name': 'land flag', 'convention': 'True if land is present'})
+    xs = xr.merge([xs, landflag.to_dataset()], join = 'inner')
     return xs
 
 
@@ -294,11 +301,15 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
         if xspecs: # can be nan if centroid was not found
             out.append(xspecs)
 
+    if not out : # no xspectrum  has been evaluated due to undefined centroids
+        return
+
     out = xr.combine_by_coords([x.expand_dims(['periodo_sample', 'periodo_line']) for x in out], combine_attrs='drop_conflicts')
     out.attrs.update({'mean_incidence': mean_incidence})
 
     # dealing with wavenumbers
     ground_range_spacing = slant_spacing / np.sin(np.radians(out.mean_incidence))
+
     # k_rg = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(out.sizes['freq_'+range_dim], ground_range_spacing/(2*np.pi))), dims='freq_'+range_dim, name = 'k_rg', attrs={'long_name':'wavenumber in range direction', 'units':'rad/m'})
     k_rg = xr.DataArray(np.fft.rfftfreq(nperseg[range_dim], ground_range_spacing / (2 * np.pi)),
                         dims='freq_' + range_dim, name='k_rg',
