@@ -163,6 +163,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         sub0 = sub0.swap_dims({'__line':'line', '__sample':'sample'})
         sub1 = sub1.swap_dims({'__line':'line', '__sample':'sample'})
         mytile = {'tile_sample':sub0['tile_sample'], 'tile_line':sub0['tile_line']}
+        variables_list = list() # list of variables to be stored for this tile
 
         # ------ checking if we are over water only ------
         if kwargs.get('landmask', None):
@@ -174,38 +175,48 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
             landflag.append(xr.DataArray(not water_only, coords=mytile, name='land_flag'))
         else:
             water_only = True
-        logging.debug('water_only :  %s', water_only)
+            landflag.append(xr.DataArray(np.nan, coords=mytile, name='land_flag'))
+    
         # ------------------------------------------------
-        if water_only:
-            # sub0 = tiled_burst0[i].swap_dims({'__' + d: d for d in tile_width.keys()})
-            # sub1 = tiled_burst1[i].swap_dims({'__' + d: d for d in tile_width.keys()})
-            sub = sub0
+        sub = sub0
 
-            mean_incidence = float(corner_incs.sel(mytile).mean())
-            mean_slant_range = float(corner_slantTimes.sel(mytile).mean()) * celerity / 2.
-            slant_spacing = float(sub['sampleSpacing'])
-            ground_spacing = slant_spacing / np.sin(np.radians(mean_incidence))
-            azimuth_spacing = float(sub['lineSpacing'])
+        mean_incidence = float(corner_incs.sel(mytile).mean())
+        mean_slant_range = float(corner_slantTimes.sel(mytile).mean()) * celerity / 2.
+        slant_spacing = float(sub['sampleSpacing'])
+        ground_spacing = slant_spacing / np.sin(np.radians(mean_incidence))
+        azimuth_spacing = float(sub['lineSpacing'])
+
+
+        mod0 = compute_modulation(np.abs(sub0['digital_number']), lowpass_width=lowpass_width,
+                                  spacing={'sample': ground_spacing, 'line': azimuth_spacing})
+        # ------------- nv ------------
+        nv = compute_normalized_variance(mod0)
+        # ------------- mean sigma0 ------------
+        sigma0 = compute_mean_sigma0(sub0['digital_number'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
+        # ------------- mean incidence ------------
+        mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
+        # ------------- heading ------------
+        _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
+        ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
+
+        variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]
+
+        if water_only:
 
             periodo_spacing = {'sample': ground_spacing, 'line': azimuth_spacing}
             nperseg_periodo = {d: int(np.rint(periodo_width[d] / periodo_spacing[d])) for d in tile_width.keys()}
             noverlap_periodo = {d: int(np.rint(periodo_overlap[d] / periodo_spacing[d])) for d in tile_width.keys()}
-
-            logging.debug("periodo_spacing %s",periodo_spacing)
-            logging.debug("nperseg_periodo %s",nperseg_periodo)
-            logging.debug("noverlap_periodo %s",noverlap_periodo)
 
             if np.any([sub0.sizes[d] < nperseg_periodo[d] for d in ['line', 'sample']]):
                 raise ValueError(
                     'periodo_width ({}) is too large compared to available data (line : {} m, sample : {} m).'.format(
                         periodo_width, sub0.sizes['line'] * azimuth_spacing, sub0.sizes['sample'] * ground_spacing))
 
-            mod0 = compute_modulation(np.abs(sub0['digital_number']), lowpass_width=lowpass_width,
-                                      spacing={'sample': ground_spacing, 'line': azimuth_spacing})
+
             mod1 = compute_modulation(np.abs(sub1['digital_number']), lowpass_width=lowpass_width,
                                       spacing={'sample': ground_spacing, 'line': azimuth_spacing})
 
-            xspecs = compute_interburst_xspectrum(mod0 ** 2, mod1 ** 2, mean_incidence, slant_spacing, azimuth_spacing,
+            xspecs = compute_interburst_xspectrum(mod0 ** 2, mod1 ** 2, float(mean_incidence), slant_spacing, azimuth_spacing,
                                                   nperseg=nperseg_periodo, noverlap=noverlap_periodo, **kwargs)
             xspecs_m = xspecs.mean(dim=['periodo_line', 'periodo_sample'],
                                    keep_attrs=True)  # averaging all the periodograms in each tile
@@ -223,28 +234,21 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
             # ------------- cut-off --------------
             xs_cut = xspecs_m.swap_dims({'freq_sample': 'k_rg', 'freq_line': 'k_az'})
             cutoff = compute_azimuth_cutoff(xs_cut)
-            # ------------- nv ------------
-            nv = compute_normalized_variance(mod0)
-            # ------------- mean sigma0 ------------
-            sigma0 = compute_mean_sigma0(sub0['digital_number'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
-            # ------------- mean incidence ------------
-            mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
-            # ------------- heading ------------
-            _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
-            ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
-            # ------------- concatenate all variables ------------
-            xs.append(xr.merge([xspecs_m, tau.to_dataset(), cutoff.to_dataset(), mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]))
+            variables_list+=[xspecs_m, tau.to_dataset(), cutoff.to_dataset()]
+
+        # ------------- concatenate all variables ------------
+        xs.append(xr.merge(variables_list))
 
 
-    if not xs:  # All tiles are over land -> no xspectra available
+    if not xs: 
         return
     
     # -------Returned xspecs have different shape in range (to keep same dk). Lines below only select common portions of xspectra-----
-    Nfreq_min = min([x.sizes['freq_sample'] for x in xs])
+    Nfreq_min = min([x.sizes['freq_sample'] if 'freq_sample' in x.dims else np.nan for x in xs if 'freq_sample' in x.dims])
     # line below rearange xs on (tile_sample, tile_line) grid and expand_dims ensures rearangment in combination by coords
-    xs = xr.combine_by_coords(
-        [x[{'freq_sample': slice(None, Nfreq_min)}].expand_dims(['tile_sample', 'tile_line']) for x in xs],
-        combine_attrs='drop_conflicts')
+    
+    xs = [x[{'freq_sample': slice(None, Nfreq_min)}] if 'freq_sample' in x.dims else x for x in xs]
+    xs = xr.combine_by_coords([x.expand_dims(['tile_sample', 'tile_line']) for x in xs], combine_attrs='drop_conflicts')
 
     # ------------------- Formatting returned dataset -----------------------------
 
@@ -262,9 +266,9 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     xs.attrs.update({'periodo_width_' + d: k for d, k in periodo_width.items()})
     xs.attrs.update({'periodo_overlap_' + d: k for d, k in periodo_overlap.items()})
 
-    landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag]) if landflag else xr.DataArray(np.nan, name='land_mask').to_dataset()
-    landflag.attrs.update({'long_name': 'land flag (True if land is present)'})
-    xs = xr.merge([xs, landflag], join = 'inner')
+    landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag])['land_flag'] if landflag else xr.DataArray(np.nan, name='land_mask')
+    landflag.attrs.update({'long_name': 'land flag', 'convention': 'True if land is present'})
+    xs = xr.merge([xs, landflag.to_dataset()], join = 'inner')
     return xs
 
 
