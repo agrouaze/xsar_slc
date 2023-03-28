@@ -102,7 +102,8 @@ def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None, w
     range_spacing = xr.DataArray(posting['sample'], attrs={'units':'m', 'long_name':'ground range spacing'}, name='range_spacing')
     azimuth_spacing = xr.DataArray(posting['line'], attrs={'units':'m', 'long_name':'azimuth spacing'}, name='azimuth_spacing')
     heading = tile['heading']
-    decimated = xr.merge([decimated.to_dataset(),corner_lat.to_dataset(), corner_lon.to_dataset(), range_spacing.to_dataset(), azimuth_spacing.to_dataset(), heading.to_dataset()])
+    incidence = tile['incidence']
+    decimated = xr.merge([decimated.to_dataset(),corner_lat.to_dataset(), corner_lon.to_dataset(), range_spacing.to_dataset(), azimuth_spacing.to_dataset(), heading.to_dataset(), incidence.to_dataset()])
     decimated = decimated.transpose('azimuth', 'range', 'c_azimuth', 'c_range', ...)
     return decimated
 
