@@ -32,7 +32,11 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation, haversine
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
 
-    # find overlapping burst portion
+    # ------------------ preprocessing --------------
+    azitime_interval = burst0.attrs['azimuth_time_interval']
+    azimuth_spacing = float(burst0['lineSpacing'])
+
+    # -------- find overlapping burst portion -----------
 
     az0 = burst0['time'].load()
     az1 = burst1['time'][{'line': 0}].load()
@@ -66,11 +70,20 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
 
     burst = burst0  # reference burst for geolocation
 
-# -----------------------------------------------------------------------------------
+    # ---------Dealing with burst granularity ------------------
+    # ---------Computing corner locations of the burst (valid portion) --------------------------
+    burst_corner_sample = burst['sample'][{'sample': [0,-1]}].rename('burst_corner_sample').swap_dims({'sample':'c_sample'})
+    burst_corner_sample = burst_corner_sample.stack(flats=burst_corner_sample.dims)
+    burst_corner_line = burst['line'][{'line': [0,-1]}].rename('burst_corner_line').swap_dims({'line':'c_line'})
+    burst_corner_line = burst_corner_line.stack(flatl=burst_corner_line.dims)
+    burst_corner_lons = FullResolutionInterpolation(burst_corner_line, burst_corner_sample, 'longitude', geolocation_annotation,
+                        azitime_interval).unstack(dim=['flats', 'flatl']).rename('burst_corner_longitude').drop(['c_line', 'c_sample', 'line','sample'])
+    burst_corner_lats = FullResolutionInterpolation(burst_corner_line, burst_corner_sample, 'latitude', geolocation_annotation,
+                        azitime_interval).unstack(dim=['flats', 'flatl']).rename('burst_corner_latitude').drop(['c_line', 'c_sample', 'line','sample'])
+    burst_corner_lons.attrs={'long_name':'corner longitude of burst overlap'}
+    burst_corner_lats.attrs={'long_name':'corner latitude of burst overlap'}
 
-
-    azitime_interval = burst.attrs['azimuth_time_interval']
-    azimuth_spacing = float(burst['lineSpacing'])
+    # ---------Dealing with tile granularity ------------------
 
     if tile_width:
         nperseg_tile = {'line':int(np.rint(tile_width['line'] / azimuth_spacing))}
