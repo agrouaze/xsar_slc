@@ -38,20 +38,25 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
 
     # burst.load()
 
-    # ---------Computing corner locations of the burst (valid portion) --------------------------
-    # burst_corner_sample = burst['sample'][{'sample': [0,-1]}].rename('burst_corner_sample')
-    # burst_corner_sample = corner_sample.stack(flats=burst_corner_sample.dims)
-    # burst_corner_line = burst['line'][{'line': [0,-1]}].rename('burst_corner_line')
-    # burst_corner_line = corner_line.stack(flatl=corner_line.dims)
-    # burst_corner_lons = FullResolutionInterpolation(burst_corner_line, burst_corner_sample, 'longitude', geolocation_annotation,
-    #                     azitime_interval).unstack(dim=['flats', 'flatl']).rename('burst_corner_longitude').drop(['c_line', 'c_sample'])
-    # burst_corner_lats = FullResolutionInterpolation(burst_corner_line, burst_corner_sample, 'latitude', geolocation_annotation,
-    #                     azitime_interval).unstack(dim=['flats', 'flatl']).rename('burst_corner_latitude').drop(['c_line', 'c_sample'])
-
-
+    # ------------------ preprocessing --------------
     azitime_interval = burst.attrs['azimuth_time_interval']
     azimuth_spacing = float(burst['lineSpacing'])
 
+
+    # ---------Dealing with burst granularity ------------------
+    # ---------Computing corner locations of the burst (valid portion) --------------------------
+    burst_corner_sample = burst['sample'][{'sample': [0,-1]}].rename('burst_corner_sample').swap_dims({'sample':'c_sample'})
+    burst_corner_sample = burst_corner_sample.stack(flats=burst_corner_sample.dims)
+    burst_corner_line = burst['line'][{'line': [0,-1]}].rename('burst_corner_line').swap_dims({'line':'c_line'})
+    burst_corner_line = burst_corner_line.stack(flatl=burst_corner_line.dims)
+    burst_corner_lons = FullResolutionInterpolation(burst_corner_line, burst_corner_sample, 'longitude', geolocation_annotation,
+                        azitime_interval).unstack(dim=['flats', 'flatl']).rename('burst_corner_longitude').drop(['c_line', 'c_sample', 'line','sample'])
+    burst_corner_lats = FullResolutionInterpolation(burst_corner_line, burst_corner_sample, 'latitude', geolocation_annotation,
+                        azitime_interval).unstack(dim=['flats', 'flatl']).rename('burst_corner_latitude').drop(['c_line', 'c_sample', 'line','sample'])
+    burst_corner_lons.attrs={'long_name':'corner longitude of burst valid portion'}
+    burst_corner_lats.attrs={'long_name':'corner latitude of burst valid portion'}
+
+    # ---------Dealing with tile granularity ------------------
     if tile_width:
         nperseg_tile = {'line':int(np.rint(tile_width['line'] / azimuth_spacing))}
     else:
@@ -186,7 +191,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         # ------------- heading ------------
         # heding below is computed on one border of the tile. It should be evaluated at the middle of the tile (maybe)    
         _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
-        ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
+        ground_heading = xr.DataArray(float(heading), name='ground_heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
         
         # ---------------- part of the variables to be added to the final dataset ----------------------
         variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]
@@ -259,7 +264,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
 
     landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag])['land_flag'] if landflag else xr.DataArray(np.nan, name='land_mask')
     landflag.attrs.update({'long_name': 'land flag', 'convention': 'True if land is present'})
-    xs = xr.merge([xs, landflag.to_dataset()], join = 'inner')
+    xs = xr.merge([xs, landflag.to_dataset(), burst_corner_lons.to_dataset(), burst_corner_lats.to_dataset()], join = 'inner')
     return xs
 
 

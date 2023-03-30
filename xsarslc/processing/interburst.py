@@ -32,7 +32,11 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation, haversine
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
 
-    # find overlapping burst portion
+    # ------------------ preprocessing --------------
+    azitime_interval = burst0.attrs['azimuth_time_interval']
+    azimuth_spacing = float(burst0['lineSpacing'])
+
+    # -------- find overlapping burst portion -----------
 
     az0 = burst0['time'].load()
     az1 = burst1['time'][{'line': 0}].load()
@@ -66,11 +70,20 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
 
     burst = burst0  # reference burst for geolocation
 
-# -----------------------------------------------------------------------------------
+    # ---------Dealing with burst granularity ------------------
+    # ---------Computing corner locations of the burst (valid portion) --------------------------
+    overlap_corner_sample = burst['sample'][{'sample': [0,-1]}].rename('overlap_corner_sample').swap_dims({'sample':'c_sample'})
+    overlap_corner_sample = overlap_corner_sample.stack(flats=overlap_corner_sample.dims)
+    overlap_corner_line = burst['line'][{'line': [0,-1]}].rename('overlap_corner_line').swap_dims({'line':'c_line'})
+    overlap_corner_line = overlap_corner_line.stack(flatl=overlap_corner_line.dims)
+    overlap_corner_lons = FullResolutionInterpolation(overlap_corner_line, overlap_corner_sample, 'longitude', geolocation_annotation,
+                        azitime_interval).unstack(dim=['flats', 'flatl']).rename('overlap_corner_longitude').drop(['c_line', 'c_sample', 'line','sample'])
+    overlap_corner_lats = FullResolutionInterpolation(overlap_corner_line, overlap_corner_sample, 'latitude', geolocation_annotation,
+                        azitime_interval).unstack(dim=['flats', 'flatl']).rename('overlap_corner_latitude').drop(['c_line', 'c_sample', 'line','sample'])
+    overlap_corner_lons.attrs={'long_name':'corner longitude of burst overlap'}
+    overlap_corner_lats.attrs={'long_name':'corner latitude of burst overlap'}
 
-
-    azitime_interval = burst.attrs['azimuth_time_interval']
-    azimuth_spacing = float(burst['lineSpacing'])
+    # ---------Dealing with tile granularity ------------------
 
     if tile_width:
         nperseg_tile = {'line':int(np.rint(tile_width['line'] / azimuth_spacing))}
@@ -197,7 +210,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
         # ------------- heading ------------
         _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
-        ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
+        ground_heading = xr.DataArray(float(heading), name='ground_heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
 
         # ---------------- part of the variables to be added to the final dataset ----------------------
         variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]
@@ -268,7 +281,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
 
     landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag])['land_flag'] if landflag else xr.DataArray(np.nan, name='land_mask')
     landflag.attrs.update({'long_name': 'land flag', 'convention': 'True if land is present'})
-    xs = xr.merge([xs, landflag.to_dataset()], join = 'inner')
+    xs = xr.merge([xs, landflag.to_dataset(), overlap_corner_lons.to_dataset(), overlap_corner_lats.to_dataset()], join = 'inner')
     return xs
 
 
