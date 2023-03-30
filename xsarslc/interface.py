@@ -101,7 +101,7 @@ def compute_low_res_tiles(tile, spacing, posting, tile_width, resolution=None, w
     corner_lon = corner_lon.drop_vars(['line','sample', 'c_line', 'c_sample'])
     range_spacing = xr.DataArray(posting['sample'], attrs={'units':'m', 'long_name':'ground range spacing'}, name='range_spacing')
     azimuth_spacing = xr.DataArray(posting['line'], attrs={'units':'m', 'long_name':'azimuth spacing'}, name='azimuth_spacing')
-    heading = tile['heading']
+    heading = tile['ground_heading']
     incidence = tile['incidence']
     decimated = xr.merge([decimated.to_dataset(),corner_lat.to_dataset(), corner_lon.to_dataset(), range_spacing.to_dataset(), azimuth_spacing.to_dataset(), heading.to_dataset(), incidence.to_dataset()])
     decimated = decimated.transpose('azimuth', 'range', 'c_azimuth', 'c_range', ...)
@@ -139,7 +139,7 @@ def get_tiles_from_L1B_SLC(L1B, polarization=None):
         calibrated_DN.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
         tile_coords = {'burst':calibrated_DN['burst'], 'tile_line':calibrated_DN['tile_line'], 'tile_sample':calibrated_DN['tile_sample']}
         calibrated_DN = calibrated_DN.assign_coords({'longitude':L1B['longitude'].sel(tile_coords).item(),'latitude':L1B['latitude'].sel(tile_coords).item()})
-        added_variables = [L1B[v].sel(tile_coords).to_dataset() for v in ['incidence','corner_longitude', 'corner_latitude', 'heading']] # add variables from L1B to output
+        added_variables = [L1B[v].sel(tile_coords).to_dataset() for v in ['incidence','corner_longitude', 'corner_latitude', 'ground_heading']] # add variables from L1B to output
         calibrated_DN = xr.merge([calibrated_DN,*added_variables, sample_spacing.to_dataset(), line_spacing.to_dataset()])
         calibrated_DN = calibrated_DN.assign_coords({'c_sample':L1B.sel(tile_coords)['corner_sample'].data, 'c_line':L1B.sel(tile_coords)['corner_line'].data})
         sigma0.append(calibrated_DN)

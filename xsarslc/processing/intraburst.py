@@ -191,7 +191,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         # ------------- heading ------------
         # heding below is computed on one border of the tile. It should be evaluated at the middle of the tile (maybe)    
         _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
-        ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
+        ground_heading = xr.DataArray(float(heading), name='ground_heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
         
         # ---------------- part of the variables to be added to the final dataset ----------------------
         variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]
