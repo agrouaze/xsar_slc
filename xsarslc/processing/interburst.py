@@ -116,6 +116,9 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     ends = starts+float(tile_width['sample'])
     starts = starts[ends<=float(burst_width)] # starting length restricted to available data
     ends = ends[ends<=float(burst_width)] # ending length restricted to available data
+    remaining = float(burst_width-ends[-1])
+    starts+=remaining/2.
+    ends+=remaining/2.
     istarts = np.searchsorted(cumulative_len,starts, side='right') # index of begining of tiles
     iends = np.searchsorted(cumulative_len,ends, side='left') # index of ending of tiles
     tile_sample = {'sample':xr.DataArray([slice(s,min(e+1,burst.sizes['sample'])) for s,e in zip(istarts,iends)], dims='tile_sample')}#, coords={'tile_sample':[(e+s)//2 for s,e in zip(istarts,iends)]})} # This is custom tile indexing along sample dimension to preserve constant tile width
