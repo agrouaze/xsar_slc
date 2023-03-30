@@ -37,6 +37,18 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
 
 
     # burst.load()
+
+    # ---------Computing corner locations of the burst (valid portion) --------------------------
+    # burst_corner_sample = burst['sample'][{'sample': [0,-1]}].rename('burst_corner_sample')
+    # burst_corner_sample = corner_sample.stack(flats=burst_corner_sample.dims)
+    # burst_corner_line = burst['line'][{'line': [0,-1]}].rename('burst_corner_line')
+    # burst_corner_line = corner_line.stack(flatl=corner_line.dims)
+    # burst_corner_lons = FullResolutionInterpolation(burst_corner_line, burst_corner_sample, 'longitude', geolocation_annotation,
+    #                     azitime_interval).unstack(dim=['flats', 'flatl']).rename('burst_corner_longitude').drop(['c_line', 'c_sample'])
+    # burst_corner_lats = FullResolutionInterpolation(burst_corner_line, burst_corner_sample, 'latitude', geolocation_annotation,
+    #                     azitime_interval).unstack(dim=['flats', 'flatl']).rename('burst_corner_latitude').drop(['c_line', 'c_sample'])
+
+
     azitime_interval = burst.attrs['azimuth_time_interval']
     azimuth_spacing = float(burst['lineSpacing'])
 
@@ -86,7 +98,6 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
 
     # ----- getting all tiles ------
     all_tiles = get_tiles(burst, tiles_index)
-
 
     # ---------Computing quantities at tile middle locations --------------------------
     tiles_middle = get_middle_tile(tiles_index) # this return the indexes, NOT the sample/line coord
@@ -176,6 +187,8 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         # heding below is computed on one border of the tile. It should be evaluated at the middle of the tile (maybe)    
         _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
         ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
+        
+        # ---------------- part of the variables to be added to the final dataset ----------------------
         variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]
 
         if water_only:
@@ -217,13 +230,14 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         # ------------- concatenate all variables ------------
         xs.append(xr.merge(variables_list))
 
-    if not xs: 
-        return
+
+    Nfreqs = [x.sizes['freq_sample'] if 'freq_sample' in x.dims else np.nan for x in xs if 'freq_sample' in x.dims]
+    if np.any(np.isfinite(Nfreqs)):
+        # -------Returned xspecs have different shape in range (to keep same dk). Lines below only select common portions of xspectra-----
+        Nfreq_min = min(Nfreqs)
+        xs = [x[{'freq_sample': slice(None, Nfreq_min)}] if 'freq_sample' in x.dims else x for x in xs]
     
-    # -------Returned xspecs have different shape in range (to keep same dk). Lines below only select common portions of xspectra-----
-    Nfreq_min = min([x.sizes['freq_sample'] if 'freq_sample' in x.dims else np.nan for x in xs if 'freq_sample' in x.dims])
     # line below rearange xs on (tile_sample, tile_line) grid and expand_dims ensures rearangment in combination by coords
-    xs = [x[{'freq_sample': slice(None, Nfreq_min)}] if 'freq_sample' in x.dims else x for x in xs]
     xs = xr.combine_by_coords([x.expand_dims(['tile_sample', 'tile_line']) for x in xs], combine_attrs='drop_conflicts')
 
     # ------------------- Formatting returned dataset -----------------------------

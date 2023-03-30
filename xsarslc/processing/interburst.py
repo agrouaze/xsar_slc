@@ -199,6 +199,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         _,heading = haversine(float(corner_lons.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 0, 'c_sample': 0}]), float(corner_lons.sel(mytile)[{'c_line': 1, 'c_sample': 0}]), float(corner_lats.sel(mytile)[{'c_line': 1, 'c_sample': 0}]))
         ground_heading = xr.DataArray(float(heading), name='heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
 
+        # ---------------- part of the variables to be added to the final dataset ----------------------
         variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]
 
         if water_only:
@@ -240,14 +241,13 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         xs.append(xr.merge(variables_list))
 
 
-    if not xs: 
-        return
+    Nfreqs = [x.sizes['freq_sample'] if 'freq_sample' in x.dims else np.nan for x in xs if 'freq_sample' in x.dims]
+    if np.any(np.isfinite(Nfreqs)):
+        # -------Returned xspecs have different shape in range (to keep same dk). Lines below only select common portions of xspectra-----
+        Nfreq_min = min(Nfreqs)
+        xs = [x[{'freq_sample': slice(None, Nfreq_min)}] if 'freq_sample' in x.dims else x for x in xs]
     
-    # -------Returned xspecs have different shape in range (to keep same dk). Lines below only select common portions of xspectra-----
-    Nfreq_min = min([x.sizes['freq_sample'] if 'freq_sample' in x.dims else np.nan for x in xs if 'freq_sample' in x.dims])
     # line below rearange xs on (tile_sample, tile_line) grid and expand_dims ensures rearangment in combination by coords
-    
-    xs = [x[{'freq_sample': slice(None, Nfreq_min)}] if 'freq_sample' in x.dims else x for x in xs]
     xs = xr.combine_by_coords([x.expand_dims(['tile_sample', 'tile_line']) for x in xs], combine_attrs='drop_conflicts')
 
     # ------------------- Formatting returned dataset -----------------------------
