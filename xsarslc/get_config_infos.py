@@ -3,8 +3,14 @@ from yaml import load
 import logging
 import os
 from yaml import CLoader as Loader
+local_config_pontential_path = os.path.join(os.path.dirname(xsarslc.__file__), 'localconfig.yml')
 
-stream = open(os.path.join(os.path.dirname(xsarslc.__file__), 'config.yml'), 'r')
+if os.path.exists(local_config_pontential_path):
+    config_path = local_config_pontential_path
+else:
+    config_path = os.path.join(os.path.dirname(xsarslc.__file__), 'config.yml')
+logging.info('config path: %s',config_path)
+stream = open(config_path, 'r')
 conf = load(stream, Loader=Loader)
 
 
