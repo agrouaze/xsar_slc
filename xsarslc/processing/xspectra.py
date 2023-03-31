@@ -30,7 +30,7 @@ def compute_subswath_xspectra(dt, polarization, tile_width_intra, tile_width_int
         polarization (str, optional): polarization to be selected for xspectra computation
 
     Keyword Args:
-        kwargs (dict): keyword arguments passed to called functions. landmask, ...
+        kwargs (dict): keyword arguments passed to called functions. landmask, IR_path ...
     """
     import datatree
     from xsarslc.tools import netcdf_compliant
@@ -78,18 +78,20 @@ def compute_subswath_xspectra(dt, polarization, tile_width_intra, tile_width_int
     return dt
 
 
-def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overlap=None, **kwargs):
+def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overlap=None, landmask=None, IR_path=None, **kwargs):
     """
     Main function to compute WV x-spectra (tiling is available)
     Note: If requested tile is larger than the size of available data (or set to None). tile will be set to maximum available size
     Args:
         dt (xarray.Datatree): datatree containing sub-swath information
+        polarization (str, optional): polarization to be selected for x-spectra computation
         tile_width (dict, optional): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}. Default is all imagette
         tile_overlap (dict, optional): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}. Default is no overlap
-        polarization (str, optional): polarization to be selected for x-spectra computation
+        landmask (cartopy, optional) : a landmask to be used for land discrimination
+        IR_path (str, optional) : a path to the Impulse Response file
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(): landmask, IR_path are valid entries
+        kwargs (dict): optional keyword arguments : No valid entries for now
         
     Return:
         (xarray): xspectra.
@@ -97,8 +99,11 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
     from xsarslc.processing.intraburst import tile_burst_to_xspectra
     from xsarslc.burst import crop_WV
 
-    if 'IR_path' not in kwargs:
+    if not IR_path:
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
+
+    if not landmask:
+        warnings.warn('Landmask not found in keyword argument. X-spectra will be evaluated everywhere.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
@@ -109,7 +114,7 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
     burst = crop_WV(burst)
     burst.attrs.update(commons)
     xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'],
-                                      dt['noise_range'], dt['noise_azimuth'], tile_width, tile_overlap, **kwargs)
+                                      dt['noise_range'], dt['noise_azimuth'], tile_width, tile_overlap, landmask=landmask, IR_path=IR_path, **kwargs)
     xspectra = xspectra.drop(
         ['tile_line', 'tile_sample'])  # dropping coordinate is important to not artificially multiply the dimensions
     if xspectra.sizes['tile_line'] == xspectra.sizes[
@@ -123,21 +128,23 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
 def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sample': 2000, 'line': 2000},
                                             periodo_overlap={'sample': 1000 ,'line': 1000},
                                             tile_width={'sample': 20.e3, 'line': 20.e3},
-                                            tile_overlap={'sample': 10.e3, 'line': 10.e3}, **kwargs):
+                                            tile_overlap={'sample': 10.e3, 'line': 10.e3}, landmask=None, IR_path=None, **kwargs):
     """
     Compute IW subswath intra-burst xspectra per tile
     Note: If requested tile is larger than the size of availabe data. tile will be set to maximum available size
     
     Args:
         dt (xarray.Datatree): datatree contraining subswath information
+        polarization (str, optional): polarization to be selected for xspectra computation
         tile_width (dict): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         tile_overlap (dict): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
-        polarization (str, optional): polarization to be selected for xspectra computation
         periodo_width (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        landmask (cartopy, optional) : a landmask to be used for land discrimination
+        IR_path (str, optional) : a path to the Impulse Response file
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_burst_to_xspectra(). landmask, IR_path, burst_list are valid entries
+        kwargs (dict): optional keyword arguments : burst_list (list), dev (bool) are valid entries
         
     Return:
         (xarray): xspectra.
@@ -145,8 +152,11 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
     from xsarslc.processing.intraburst import tile_burst_to_xspectra
     from xsarslc.burst import crop_IW_burst, deramp_burst
 
-    if 'IR_path' not in kwargs:
+    if not IR_path:
         warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
+
+    if not landmask:
+        warnings.warn('Landmask not found in keyword argument. X-spectra will be evaluated everywhere.')
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
@@ -154,8 +164,8 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
     xspectra = list()
 
     burst_list = kwargs.pop('burst_list', dt['bursts'].ds['burst'].data) # this is a list of burst number (not burst index)
-    dev = kwargs.get('dev', False)
-    if dev:
+
+    if kwargs.pop('dev', False):
         logging.info('reduce number of burst -> 1')
         burst_list = burst_list[0] if len(burst_list)>0 else []
 
@@ -168,7 +178,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
         burst_xspectra = tile_burst_to_xspectra(burst, dt['geolocation_annotation'], dt['orbit'], dt['calibration'],
                                                 dt['noise_range'], dt['noise_azimuth'], tile_width, tile_overlap,
                                                 periodo_width=periodo_width, periodo_overlap=periodo_overlap,
-                                                **kwargs)
+                                                landmask=landmask, IR_path=IR_path, **kwargs)
         if burst_xspectra:
             xspectra.append(burst_xspectra.drop(['tile_line',
                                                  'tile_sample']))  # dropping coordinate is important to not artificially multiply the dimensions
@@ -193,7 +203,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
 def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sample': 2000, 'line': 1200},
                                             periodo_overlap={'sample': 1000 ,'line': 600},
                                             tile_width={'sample': 20.e3, 'line': 1.5e3},
-                                            tile_overlap={'sample': 10.e3, 'line': 0.75e3}, **kwargs):
+                                            tile_overlap={'sample': 10.e3, 'line': 0.75e3}, landmask=None, IR_path=None, **kwargs):
     """
     Compute IW subswath inter-burst xspectra. No deramping is applied since only magnitude is used.
     
@@ -203,14 +213,16 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
     
     Args:
         dt (xarray.Datatree): datatree containing sub-swath information
+        polarization (str, optional): polarization to be selected for xspectra computation
         tile_width (dict): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         tile_overlap (dict): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
-        polarization (str, optional): polarization to be selected for xspectra computation
         periodo_width (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        landmask (cartopy, optional) : a landmask to be used for land discrimination
+        IR_path (str, optional) : a path to the Impulse Response file
     
     Keyword Args:
-        kwargs (dict): keyword arguments passed to tile_bursts_overlap_to_xspectra(). landmask, burst_list is valid entries
+        kwargs (dict): optional keyword arguments : burst_list (list), dev (bool) are valid entries
         
     Return:
         (xarray): xspectra.
@@ -218,14 +230,21 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
     from xsarslc.processing.interburst import tile_bursts_overlap_to_xspectra
     from xsarslc.burst import crop_IW_burst
 
+    if not IR_path:
+        warnings.warn('Impulse Reponse not found in keyword argument. No IR correction will be applied.')
+
+    if not landmask:
+        warnings.warn('Landmask not found in keyword argument. X-spectra will be evaluated everywhere.')
+
+
     commons = {'azimuth_steering_rate': dt['image']['azimuthSteeringRate'].item(),
                'mean_incidence': float(dt['image']['incidenceAngleMidSwath']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
     xspectra = list()
 
     burst_list = kwargs.pop('burst_list', dt['bursts'].ds['burst'].data) # this is a list of burst number (not burst index)
-    dev = kwargs.get('dev', False)
-    if dev:
+
+    if kwargs.pop('dev', False):
         logging.info('reduce number of burst -> 1')
         burst_list = burst_list[0] if len(burst_list)>0 else []
 
@@ -242,7 +261,8 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
                                                               tile_width=tile_width,
                                                               tile_overlap=tile_overlap,
                                                               periodo_width=periodo_width,
-                                                              periodo_overlap=periodo_overlap, **kwargs)
+                                                              periodo_overlap=periodo_overlap,
+                                                              landmask=landmask, IR_path=IR_path, **kwargs)
         if interburst_xspectra:
             xspectra.append(interburst_xspectra.drop(['tile_line', 'tile_sample']))
 
