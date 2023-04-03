@@ -171,7 +171,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             landflag.append(xr.DataArray(not water_only, coords=mytile, name='land_flag'))
         else:
             water_only = True
-            landflag.append(xr.DataArray(np.nan, coords=mytile, name='land_flag'))
+            # landflag.append(xr.DataArray(np.nan, coords=mytile, name='land_flag'))
         # ------------------------------------------------
         
         mean_incidence = float(corner_incs.sel(mytile).mean())
