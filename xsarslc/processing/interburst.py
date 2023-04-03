@@ -12,7 +12,8 @@ from xsarslc.tools import xtiling, xndindex
 def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, calibration, noise_range, noise_azimuth, tile_width, tile_overlap,
                                     lowpass_width={'sample': 4750., 'line': 4750.},
                                     periodo_width={'sample': 2000., 'line': 1200.}, #2000 1200 en 20km# 1800 1200 en 2km
-                                    periodo_overlap={'sample': 1000., 'line': 600.}, **kwargs):
+                                    periodo_overlap={'sample': 1000., 'line': 600.},
+                                    landmask=None, IR_path=None, **kwargs):
     """
     Divide bursts overlaps in tiles and compute inter-burst cross-spectra using compute_interburst_xspectrum() function.
 
@@ -25,7 +26,8 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         azimuth_steering_rate (float) : antenna azimuth steering rate [deg/s]
         azimuth_time_interval (float) : azimuth time spacing [s]
         lowpass_width (dict): width for low pass filtering [m]. Dict of form {dim_name (str): width (float)}
-    
+        landmask (optional) : If provided, land mask passed to is_ocean(). Otherwise xspectra are calculated by default
+        IR_path (str, optional) : a path to the Impulse Response file
     Keyword Args:
         kwargs: keyword arguments passed to compute_interburst_xspectrum()
     """
@@ -182,16 +184,16 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         variables_list = list() # list of variables to be stored for this tile
 
         # ------ checking if we are over water only ------
-        if kwargs.get('landmask', None):
+        if landmask:
             tile_lons = [float(corner_lons.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
             tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
-            water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
+            water_only = is_ocean((tile_lons, tile_lats), landmask)
             landflag.append(xr.DataArray(not water_only, coords=mytile, name='land_flag'))
         else:
             water_only = True
-            landflag.append(xr.DataArray(np.nan, coords=mytile, name='land_flag'))
+            # landflag.append(xr.DataArray(np.nan, coords=mytile, name='land_flag'))
     
         # ------------------------------------------------
         sub = sub0

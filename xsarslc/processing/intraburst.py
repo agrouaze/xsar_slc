@@ -13,7 +13,9 @@ from tqdm import tqdm
 def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, noise_range, noise_azimuth, tile_width, tile_overlap,
                            lowpass_width={'sample': 4750., 'line': 4750.},
                            periodo_width={'sample': 4000., 'line': 4000.}, #4000 en 20km # 1800 en 2km tiles
-                           periodo_overlap={'sample': 2000., 'line': 2000.}, **kwargs): # half width
+                           periodo_overlap={'sample': 2000., 'line': 2000.},
+                           landmask=None, IR_path=None,
+                            **kwargs): # half width
     """
     Divide burst in tiles and compute intra-burst cross-spectra using compute_intraburst_xspectrum() function.
 
@@ -26,18 +28,16 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         periodo_width (dict): approximative sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         periodo_overlap (dict): approximative sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
         lowpass_width (dict): width for low pass filtering [m]. Dict of form {dim_name (str): width (float)}
-    
-    Keyword Args:
         landmask (optional) : If provided, land mask passed to is_ocean(). Otherwise xspectra are calculated by default
+        IR_path (str, optional) : a path to the Impulse Response file
+    Keyword Args:
         kwargs: keyword arguments passed to compute_intraburst_xspectrum()
     """
     from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation, haversine
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
 
 
-
     # burst.load()
-
     # ------------------ preprocessing --------------
     azitime_interval = burst.attrs['azimuth_time_interval']
     azimuth_spacing = float(burst['lineSpacing'])
@@ -150,7 +150,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
     # combinaison_selection_tiles = [yy for yy in xndindex(tiles_sizes)]
     combinaison_selection_tiles = all_tiles
     pbar = tqdm(range(len(all_tiles)), desc='start')
-    if kwargs.get('dev', None):
+    if kwargs.get('dev', False):
         logging.info('dev mode : reduce number of tile in the burst to 2')
         pbar = tqdm(range(2), desc='start')
     else:
@@ -162,16 +162,16 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         variables_list = list() # list of variables to be stored for this tile
 
         # ------ checking if we are over water only ------
-        if kwargs.get('landmask', None):
+        if landmask:
             tile_lons = [float(corner_lons.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
             tile_lats = [float(corner_lats.sel(mytile)[{'c_line': j, 'c_sample': k}]) for j, k in
                          [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]]
-            water_only = is_ocean((tile_lons, tile_lats), kwargs.get('landmask'))
+            water_only = is_ocean((tile_lons, tile_lats), landmask)
             landflag.append(xr.DataArray(not water_only, coords=mytile, name='land_flag'))
         else:
             water_only = True
-            landflag.append(xr.DataArray(np.nan, coords=mytile, name='land_flag'))
+            # landflag.append(xr.DataArray(np.nan, coords=mytile, name='land_flag'))
         # ------------------------------------------------
         
         mean_incidence = float(corner_incs.sel(mytile).mean())
@@ -214,7 +214,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
                         2 * burst.attrs['radar_frequency'] * mean_velocity * azimuth_spacing)
             xspecs = compute_intraburst_xspectrum(mod, float(mean_incidence), slant_spacing, azimuth_spacing,
                                                   synthetic_duration, nperseg=nperseg_periodo,
-                                                  noverlap=noverlap_periodo, **kwargs)
+                                                  noverlap=noverlap_periodo, IR_path=IR_path, **kwargs)
 
             if xspecs: # no xspecs have been calculated (could be undefined centroid,)
                 xspecs_m = xspecs.mean(dim=['periodo_line', 'periodo_sample'],
@@ -274,7 +274,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
 
 def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spacing, synthetic_duration,
                                  azimuth_dim='line', nperseg={'sample': 512, 'line': 512},
-                                 noverlap={'sample': 256, 'line': 256}, **kwargs):
+                                 noverlap={'sample': 256, 'line': 256}, IR_path=None, **kwargs):
     """
     Compute SAR cross spectrum using a 2D Welch method. Looks are centered on the mean Doppler frequency
     If ds contains only one cycle, spectrum wavenumbers are added as coordinates in returned DataSet, otherwise, they are passed as variables (k_range, k_azimuth).
@@ -302,9 +302,8 @@ def compute_intraburst_xspectrum(slc, mean_incidence, slant_spacing, azimuth_spa
     periodo = periodo.drop([range_dim, azimuth_dim]).swap_dims({'__' + d: d for d in periodo_slices.keys()})
     periodo_sizes = {d: k for d, k in periodo.sizes.items() if 'periodo_' in d}
 
-    #if 'IR_path' in kwargs: # Impulse Response has been provided
-    if kwargs.get('IR_path',None):
-        IR = xr.load_dataset(kwargs.pop('IR_path'))
+    if IR_path:
+        IR = xr.load_dataset(IR_path)
         IR['range_IR'] = IR['range_IR'].where(IR['range_IR']>IR['range_IR'].max()/100, np.nan) # discarding portion where range IR is very low
         freq_line = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(IR.sizes['k_az'])), dims='k_az')
         freq_sample = xr.DataArray(np.fft.fftshift(np.fft.fftfreq(IR.sizes['k_srg'])), dims='k_srg')
@@ -404,7 +403,7 @@ def compute_looks(slc, azimuth_dim, synthetic_duration, nlooks=3, look_width=0.2
     centroid = get_centroid(mydop, dim=freq_azi_dim, method='maxfit')
     if not np.isfinite(centroid):
         return
-    
+
     if 'IR' not in kwargs: # No Impulse Response has been provided
         mydop = xrft.fft(slc*np.exp(-1j*2*np.pi*centroid*slc[azimuth_dim]), dim=[azimuth_dim], detrend=None,
                          window=None, shift=True, true_phase=True, true_amplitude=True)
