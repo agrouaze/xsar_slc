@@ -8,7 +8,6 @@ import logging
 from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 import warnings
-from tqdm import tqdm
 
 def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, noise_range, noise_azimuth, tile_width, tile_overlap,
                            lowpass_width={'sample': 4750., 'line': 4750.},
@@ -149,16 +148,12 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
     landflag = list()
     # combinaison_selection_tiles = [yy for yy in xndindex(tiles_sizes)]
     combinaison_selection_tiles = all_tiles
-    pbar = tqdm(range(len(all_tiles)), desc='start')
     if kwargs.get('dev', None):
         logging.info('dev mode : reduce number of tile in the burst to 2')
-        #pbar = tqdm(range(2), desc='start')
         nbtiles = 2
     else:
-        #pbar = tqdm(range(len(all_tiles)), desc='start')
         nbtiles = len(all_tiles)
-    # for ii in pbar:
-    #     pbar.set_description('loop on %s/%s tiles' % (ii+1,len(combinaison_selection_tiles)))
+
     for ii  in range(nbtiles):
         sub = all_tiles[ii].swap_dims({'__line':'line', '__sample':'sample'})
         mytile = {'tile_sample':sub['tile_sample'], 'tile_line':sub['tile_line']}
