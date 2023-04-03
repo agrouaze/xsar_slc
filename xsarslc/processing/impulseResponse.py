@@ -5,6 +5,7 @@
 import numpy as np
 import xarray as xr
 import logging
+import warnings
 from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 
@@ -72,7 +73,7 @@ def compute_IWS_subswath_Impulse_Response(dt, burst_list=None, tile_width={'samp
         (xarray): xspectra.
     """
     from xsarslc.processing.impulseResponse import tile_burst_to_IR
-    from xsarslc.burst import crop_burst, deramp_burst
+    from xsarslc.burst import crop_IW_burst, deramp_burst
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval']),
@@ -87,7 +88,7 @@ def compute_IWS_subswath_Impulse_Response(dt, burst_list=None, tile_width={'samp
         burst_list = [0,1]
     
     for b in burst_list:      
-        burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
+        burst = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
         deramped_burst = deramp_burst(burst, dt)
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
         burst.load()

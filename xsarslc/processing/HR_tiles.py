@@ -24,7 +24,7 @@ def compute_HR_tile(dt, polarization, posting, resolution = None, **kwargs):
     Return:
         (xarray): xspectra.
     """
-    from xsarslc.burst import crop_burst, deramp_burst
+    from xsarslc.burst import crop_IW_burst, deramp_burst
 
     commons = {'radar_frequency': float(dt['image']['radarFrequency']),
                'azimuth_time_interval': float(dt['image']['azimuthTimeInterval'])}
@@ -37,7 +37,7 @@ def compute_HR_tile(dt, polarization, posting, resolution = None, **kwargs):
         nb_burst = 1
         HRmap = list()
     for b in range(nb_burst):
-        burst = crop_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
+        burst = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
         burst.load()
         sigma0 = get_calibrated_sigma0_from_burst(burst,  dt['calibration'], dt['noise_range'], dt['noise_azimuth'])
         burst = xr.merge([burst, sigma0], combine_attrs='drop_conflicts')
