@@ -31,13 +31,16 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         landmask (optional) : If provided, land mask passed to is_ocean(). Otherwise xspectra are calculated by default
         IR_path (str, optional) : a path to the Impulse Response file
     Keyword Args:
+        landmask (optional) : If provided, land mask passed to is_ocean(). Otherwise xspectra are calculated by default
         kwargs: keyword arguments passed to compute_intraburst_xspectrum()
     """
     from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation, haversine
     from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
 
 
+
     # burst.load()
+
     # ------------------ preprocessing --------------
     azitime_interval = burst.attrs['azimuth_time_interval']
     azimuth_spacing = float(burst['lineSpacing'])
@@ -149,14 +152,13 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
     landflag = list()
     # combinaison_selection_tiles = [yy for yy in xndindex(tiles_sizes)]
     combinaison_selection_tiles = all_tiles
-    pbar = tqdm(range(len(all_tiles)), desc='start')
     if kwargs.get('dev', False):
         logging.info('dev mode : reduce number of tile in the burst to 2')
-        pbar = tqdm(range(2), desc='start')
+        nbtiles = 2
     else:
-        pbar = tqdm(range(len(all_tiles)), desc='start')
-    for ii in pbar:
-        pbar.set_description('loop on %s/%s tiles' % (ii+1,len(combinaison_selection_tiles)))
+        nbtiles = len(all_tiles)
+
+    for ii  in range(nbtiles):
         sub = all_tiles[ii].swap_dims({'__line':'line', '__sample':'sample'})
         mytile = {'tile_sample':sub['tile_sample'], 'tile_line':sub['tile_line']}
         variables_list = list() # list of variables to be stored for this tile

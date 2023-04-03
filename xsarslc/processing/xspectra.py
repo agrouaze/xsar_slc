@@ -8,7 +8,7 @@ import logging
 from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
 import warnings
-
+from tqdm import tqdm
 
 def compute_subswath_xspectra(dt, polarization, tile_width_intra, tile_width_inter, tile_overlap_intra,
                               tile_overlap_inter,
@@ -138,6 +138,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
         polarization (str, optional): polarization to be selected for xspectra computation
         tile_width (dict): approximative sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         tile_overlap (dict): approximative sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        polarization (str, optional): polarization to be selected for xspectra computation
         periodo_width (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
         landmask (cartopy, optional) : a landmask to be used for land discrimination
@@ -167,9 +168,11 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
 
     if kwargs.pop('dev', False):
         logging.info('reduce number of burst -> 1')
-        burst_list = burst_list[0] if len(burst_list)>0 else []
-
-    for b in burst_list:
+        burst_list = [burst_list[0]] if len(burst_list)>0 else []
+    pbar = tqdm(range(len(burst_list)))
+    for ii in pbar:
+        b = burst_list[ii]
+        pbar.set_description('intrabursts')
         burst = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True).sel(pol=polarization)
         deramped_burst = deramp_burst(burst, dt)
         burst = xr.merge([burst, deramped_burst.drop('azimuthTime')], combine_attrs='drop_conflicts')
@@ -221,6 +224,7 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
         polarization (str, optional): polarization to be selected for xspectra computation
         tile_width (dict): approximate sizes of tiles in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         tile_overlap (dict): approximate sizes of tiles overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
+        polarization (str, optional): polarization to be selected for xspectra computation
         periodo_width (dict): approximate sizes of periodogram in meters. Dict of shape {dim_name (str): width of tile [m](float)}
         periodo_overlap (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)}
         landmask (cartopy, optional) : a landmask to be used for land discrimination
@@ -251,10 +255,14 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
 
     if kwargs.pop('dev', False):
         logging.info('reduce number of burst -> 1')
-        burst_list = burst_list[0] if len(burst_list)>0 else []
+        burst_list = [burst_list[0]] if len(burst_list)>0 else []
 
 
-    for b in burst_list[:-1]:
+    #for b in burst_list[:-1]:
+    pbar = tqdm(range(len(burst_list[:-1])))
+    for ii in pbar:
+        b = burst_list[ii]
+        pbar.set_description('interbursts')
         burst0 = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b, valid=True,
                             merge_burst_annotation=True).sel(pol=polarization)
         burst1 = crop_IW_burst(dt['measurement'].ds, dt['bursts'].ds, burst_number=b + 1, valid=True,

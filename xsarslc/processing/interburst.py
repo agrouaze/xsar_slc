@@ -7,7 +7,7 @@ import xarray as xr
 import logging
 from scipy.constants import c as celerity
 from xsarslc.tools import xtiling, xndindex
-
+import warnings
 
 def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, calibration, noise_range, noise_azimuth, tile_width, tile_overlap,
                                     lowpass_width={'sample': 4750., 'line': 4750.},

@@ -28,7 +28,7 @@ def get_IR_file(unit, subswath, polarization):
                                            unit + '_IRs_' + subswath + '_' + polarization + '.nc'))
     logging.info('expected path for auxiliary Impulse Response file : %s', pathaux)
     if os.path.exists(pathaux):
-
+        logging.info('IR exists and will be used: %s',pathaux)
         return pathaux
     else:
         logging.warning('RI file %s cannot be found', pathaux)
