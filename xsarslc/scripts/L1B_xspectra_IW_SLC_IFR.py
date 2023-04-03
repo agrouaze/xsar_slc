@@ -87,7 +87,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
                                                                    tile_overlap_inter=tile_overlap_inter,
                                                                    periodo_width_inter=periodo_width_inter,
                                                                    periodo_overlap_inter=periodo_overlap_inter
-                                                                   , IR_path=IR_path, landmask=landmask)
+                                                                   , IR_path=IR_path,landmask=landmask)
     else:
         one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt, polarization=polarization.upper(),
                                                                    dev=dev, compute_intra_xspec=True,
@@ -99,8 +99,9 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
                                                                    tile_width_inter=tile_width_inter,
                                                                    tile_overlap_inter=tile_overlap_inter,
                                                                    periodo_width_inter=periodo_width_inter,
-                                                                   periodo_overlap_inter=periodo_overlap_inter
-                                                                   , landmask=landmask)
+                                                                   periodo_overlap_inter=periodo_overlap_inter,
+                                                                   landmask=landmask
+                                                                   )
     if one_subswath_xspectrum_dt:
         logging.info('xspec intra and inter ready for %s', slc_iw_path)
         logging.debug('one_subswath_xspectrum = %s', one_subswath_xspectrum_dt)
@@ -139,10 +140,10 @@ def main():
     fmt = '%(asctime)s %(levelname)s %(filename)s(%(lineno)d) %(message)s'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG, format=fmt,
-                            datefmt='%d/%m/%Y %H:%M:%S')
+                            datefmt='%d/%m/%Y %H:%M:%S',force=True)
     else:
         logging.basicConfig(level=logging.INFO, format=fmt,
-                            datefmt='%d/%m/%Y %H:%M:%S')
+                            datefmt='%d/%m/%Y %H:%M:%S',force=True)
     t0 = time.time()
     logging.info('product version to produce: %s', args.version)
     logging.info('outputdir will be: %s', args.outputdir)
