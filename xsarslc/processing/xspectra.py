@@ -200,7 +200,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
     dims_not_align = dims_not_align-set(['tile_sample', 'tile_line'])
     xspectra = xr.align(*xspectra, exclude=dims_not_align, join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
     xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).reset_coords(['line','sample','longitude','latitude']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
-    xspectra = xspectra.assign_coords({d:xspectra[d] for d in ['line','sample','longitude','latitude']}) # reseting and reassigning theses 4 variables avoid some bug in combine_by_coords with missing variables between datasets
+    xspectra = xspectra.assign_coords({d:xspectra[d] for d in ['line','sample','longitude','latitude'] if d in xspectra}) # reseting and reassigning theses variables avoid some bug in combine_by_coords with missing variables between datasets
     dims_to_transpose = [d for d in ['burst', 'tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
                          d in xspectra.dims]  # for homogeneous order of dimensions with interburst
     xspectra = xspectra.transpose(*dims_to_transpose, ...)
@@ -293,7 +293,7 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
     dims_not_align = dims_not_align-set(['tile_sample', 'tile_line'])
     xspectra = xr.align(*xspectra, exclude=dims_not_align, join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
     xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).reset_coords(['line','sample','longitude','latitude']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
-    xspectra = xspectra.assign_coords({d:xspectra[d] for d in ['line','sample','longitude','latitude']}) # reseting and reassigning theses 4 variables avoid some bug in combine_by_coords with missing variables between datasets
+    xspectra = xspectra.assign_coords({d:xspectra[d] for d in ['line','sample','longitude','latitude'] if d in xspectra}) # reseting and reassigning theses variables avoid some bug in combine_by_coords with missing variables between datasets
     dims_to_transpose = [d for d in ['burst', 'tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
                          d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
     xspectra = xspectra.transpose(*dims_to_transpose, ...)
