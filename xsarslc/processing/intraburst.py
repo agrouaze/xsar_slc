@@ -190,7 +190,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         # ------------- nv ------------
         nv = compute_normalized_variance(mod)
         # ------------- mean sigma0 ------------
-        sigma0 = compute_mean_sigma0(DN, calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
+        sigma0 = compute_mean_sigma0(DN, burst['linesPerBurst'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
         # ------------- mean incidence ------------
         mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
         # ------------- heading ------------

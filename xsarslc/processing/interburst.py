@@ -210,7 +210,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         # ------------- nv ------------
         nv = compute_normalized_variance(mod0)
         # ------------- mean sigma0 ------------
-        sigma0 = compute_mean_sigma0(sub0['digital_number'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
+        sigma0 = compute_mean_sigma0(sub0['digital_number'], burst['linesPerBurst'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
         # ------------- mean incidence ------------
         mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
         # ------------- heading ------------
