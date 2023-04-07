@@ -389,7 +389,27 @@ def compute_normalized_variance(modulation):
     return nv
 
 
-def compute_mean_sigma0(DN, sigma0_lut, range_noise_lut, azimuth_noise_lut):
+def compute_mean_sigma0_interp(DN, sigma0_lut, range_noise_lut, azimuth_noise_lut):
+    """
+    compute mean calibrated sigma0. This is an old version doing interpolation over the LUT instead of taking closest LUT
+    Args:
+        DN (xarray): digital number
+        sigma0_lut (xarray) : calibration LUT of dataset
+    Return:
+        (xarray): calibrated mean sigma0 (single value)
+    """
+    polarization = DN.pol.item()
+    sigma0_lut = sigma0_lut.sel(pol=polarization)
+    range_noise_lut = range_noise_lut.sel(pol=polarization)
+    azimuth_noise_lut = azimuth_noise_lut.sel(pol=polarization)
+    noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True)) * (
+        range_noise_lut.interp_like(DN, assume_sorted=True))
+    sigma0 = (np.abs(DN) ** 2 - noise) / ((sigma0_lut.interp_like(DN, assume_sorted=True)) ** 2)
+    sigma0 = sigma0.mean(dim=['line', 'sample']).rename('sigma0')
+    sigma0.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
+    return sigma0
+
+def compute_mean_sigma0(DN, linesPerBurst, sigma0_lut, range_noise_lut, azimuth_noise_lut):
     """
     compute mean calibrated sigma0
     Args:
@@ -400,7 +420,8 @@ def compute_mean_sigma0(DN, sigma0_lut, range_noise_lut, azimuth_noise_lut):
     """
     polarization = DN.pol.item()
     sigma0_lut = sigma0_lut.sel(pol=polarization)
-    range_noise_lut = range_noise_lut.sel(pol=polarization)
+    mid_burst_line = int(linesPerBurst*(DN['burst'].item()+0.5))
+    range_noise_lut = range_noise_lut.sel(pol=polarization).sel(line=mid_burst_line, method='nearest').drop_vars('line') # taking closest line
     azimuth_noise_lut = azimuth_noise_lut.sel(pol=polarization)
     noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True)) * (
         range_noise_lut.interp_like(DN, assume_sorted=True))

@@ -127,6 +127,8 @@ def get_tiles_from_L1B_SLC(L1B, polarization=None):
     DN = dt['measurement']['digital_number'].sel(pol=polarization)
     sigma0_lut = dt['calibration']['sigma0_lut'].sel(pol=polarization)
     range_noise_lut = dt['noise_range'].ds['noise_lut'].sel(pol=polarization)
+    mid_burst_line = int(dt['bursts']['linesPerBurst'].item()*(DN['burst'].item()+0.5))
+    range_noise_lut = range_noise_lut.sel(line=mid_burst_line, method='nearest').drop_vars('line') # taking closest line
     azimuth_noise_lut = dt['noise_azimuth'].ds['noise_lut'].sel(pol=polarization)
     sample_spacing = dt['measurement']['sampleSpacing']
     line_spacing = dt['measurement']['lineSpacing']
