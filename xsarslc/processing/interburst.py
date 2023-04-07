@@ -252,8 +252,9 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
             tau = xr.DataArray(float(tau), name='tau', attrs={'long_name': 'delay between two successive acquisitions', 'units': 's'})
             # ------------- cut-off --------------
             xs_cut = xspecs_m.swap_dims({'freq_sample': 'k_rg', 'freq_line': 'k_az'})
-            cutoff = compute_azimuth_cutoff(xs_cut)
-            variables_list+=[xspecs_m, tau.to_dataset(), cutoff.to_dataset()]
+            cutoff, cutoff_error = compute_azimuth_cutoff(xs_cut)
+
+            variables_list+=[xspecs_m, tau.to_dataset(), cutoff.to_dataset(), cutoff_error.to_dataset()]
 
         # ------------- concatenate all variables ------------
         xs.append(xr.merge(variables_list))

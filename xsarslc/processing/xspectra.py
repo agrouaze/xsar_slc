@@ -361,17 +361,20 @@ def compute_azimuth_cutoff(spectrum, definition='drfab'):
     coVRm /= coVRm.max()
     coVfit = coVRm.where(np.abs(coVRm.az) < 500, drop=True)
 
+
     def fit_gauss(x, a, l):
         return a * np.exp(-(np.pi * x / l) ** 2)
 
     try:
-        p, r = curve_fit(fit_gauss, coVfit.az, coVfit.data, p0=[1., 227.])
+        p, pcov = curve_fit(fit_gauss, coVfit.az, coVfit.data, p0=[1., 227.])
         cutoff = p[1]
+        relat_err = np.abs((np.sqrt(np.diag(pcov))/p)[1])
     except:
-        cutoff = np.nan
+        cutoff, relat_err = np.nan, np.nan
 
     cutoff = xr.DataArray(float(cutoff), name='azimuth_cutoff', attrs={'long_name': 'Azimuthal cut-off', 'units': 'm'})
-    return cutoff
+    cutoff_error = xr.DataArray(float(relat_err), name='azimuth_cutoff_error', attrs={'long_name': 'normalized azimuthal cut-off error std'})
+    return cutoff, cutoff_error
 
 
 def compute_normalized_variance(modulation):

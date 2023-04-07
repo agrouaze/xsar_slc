@@ -233,10 +233,11 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
                 cutoff_tau = [str(i) + 'tau' for i in [3, 2, 1, 0] if str(i) + 'tau' in xspecs_m.dims][0]  # tau used to compute azimuthal cutoff
                 xs_cut = xspecs_m['xspectra_' + cutoff_tau].mean(dim=cutoff_tau).swap_dims(
                     {'freq_sample': 'k_rg', 'freq_line': 'k_az'})
-                cutoff = compute_azimuth_cutoff(xs_cut)
+                cutoff, cutoff_error = compute_azimuth_cutoff(xs_cut)
                 cutoff.attrs.update({'long_name':cutoff.attrs['long_name']+' ('+cutoff_tau+')'})
+                cutoff_error.attrs.update({'long_name':cutoff_error.attrs['long_name']+' ('+cutoff_tau+')'})
 
-                variables_list+=[xspecs_m, xspecs_v, tau.to_dataset(), cutoff.to_dataset()]
+                variables_list+=[xspecs_m, xspecs_v, tau.to_dataset(), cutoff.to_dataset(), cutoff_error.to_dataset()]
         # ------------- concatenate all variables ------------
         xs.append(xr.merge(variables_list))
 
