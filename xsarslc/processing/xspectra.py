@@ -63,7 +63,8 @@ def compute_subswath_xspectra(dt, polarization, tile_width_intra, tile_width_int
             inter_xs.attrs.update({'multidataset': str(inter_xs.multidataset)})
             # inter_xs.attrs.update({'start_date': str(inter_xs.start_date)})
             # inter_xs.attrs.update({'stop_date': str(inter_xs.stop_date)})
-        inter_xs.attrs.update({'footprint': str(inter_xs.footprint)})
+        if 'footprint' in inter_xs.attrs:
+            inter_xs.attrs.update({'footprint': str(inter_xs.footprint)})
         # inter_xs.attrs.pop('pixel_line_m')
         # inter_xs.attrs.pop('pixel_sample_m')
     if not inter_xs and not intra_xs:
