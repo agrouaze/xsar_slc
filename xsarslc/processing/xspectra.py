@@ -205,7 +205,9 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
     dims_to_transpose = [d for d in ['burst', 'tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
                          d in xspectra.dims]  # for homogeneous order of dimensions with interburst
     xspectra = xspectra.transpose(*dims_to_transpose, ...)
-
+    xspectra['land_flag'] = xspectra['land_flag'].astype(bool)
+    xspectra['corner_line'] = xspectra['corner_line'].astype(int)
+    xspectra['corner_sample'] = xspectra['corner_sample'].astype(int)
     return xspectra
 
 
@@ -298,7 +300,9 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
     dims_to_transpose = [d for d in ['burst', 'tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
                          d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
     xspectra = xspectra.transpose(*dims_to_transpose, ...)
-
+    xspectra['land_flag'] = xspectra['land_flag'].astype(bool)
+    xspectra['corner_line'] = xspectra['corner_line'].astype(int)
+    xspectra['corner_sample'] = xspectra['corner_sample'].astype(int)
     return xspectra
 
 
