@@ -268,7 +268,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
     xs.attrs.update({'periodo_width_' + d: k for d, k in periodo_width.items()})
     xs.attrs.update({'periodo_overlap_' + d: k for d, k in periodo_overlap.items()})
 
-    landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag])['land_flag'] if landflag else xr.DataArray(np.nan, name='land_mask')
+    landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag])['land_flag'] if landflag else xr.DataArray(0, name='land_mask')
     landflag.attrs.update({'long_name': 'land flag', 'convention': 'True if land is present'})
     xs = xr.merge([xs, landflag.to_dataset(), burst_corner_lons.to_dataset(), burst_corner_lats.to_dataset()], join = 'inner')
     return xs
