@@ -189,8 +189,8 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
             
         # ------------- nv ------------
         nv = compute_normalized_variance(mod)
-        # ------------- mean sigma0 ------------
-        sigma0 = compute_mean_sigma0(DN, burst['linesPerBurst'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
+        # ------------- mean sigma0 and nesz ------------
+        sigma0, nesz = compute_mean_sigma0(DN, burst['linesPerBurst'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
         # ------------- mean incidence ------------
         mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
         # ------------- heading ------------
@@ -199,7 +199,7 @@ def tile_burst_to_xspectra(burst, geolocation_annotation, orbit, calibration, no
         ground_heading = xr.DataArray(float(heading), name='ground_heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
         
         # ---------------- part of the variables to be added to the final dataset ----------------------
-        variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]
+        variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), nesz.to_dataset(), ground_heading.to_dataset()]
 
         if water_only:
             periodo_spacing = {'sample': ground_spacing, 'line': azimuth_spacing}
