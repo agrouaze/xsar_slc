@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 A. Grouazel
-18 Nov 2022
-purpose: produce nc files from SAFE IW SLC containing cartesian x-spec computed with xsar and xsar_slc
+13 April 2023
+purpose: produce nc files from SAFE EW SLC containing cartesian x-spec computed with xsar and xsar_slc
  on intra and inter bursts
 """
 
 import xsarslc.processing.xspectra as proc
 import warnings
 import xsar
+
 # warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore')
 import numpy as np
@@ -18,6 +19,7 @@ import logging
 import os
 import time
 import xsarslc
+
 print('xsarslc version:', xsarslc.__version__)
 print('source ', xsarslc.__file__)
 import argparse
@@ -25,7 +27,7 @@ from xsarslc.get_config_infos import get_IR_file, get_production_version, get_de
     get_default_xspec_params, \
     get_default_landmask_dir
 
-PRODUCT_VERSION = get_production_version()  # see  https://github.com/umr-lops/xsar_slc/wiki/IFR--IW-processings
+PRODUCT_VERSION = get_production_version()
 
 
 def get_memory_usage():
@@ -39,7 +41,7 @@ def get_memory_usage():
     return str_mem
 
 
-def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, polarization=None, dev=False,
+def generate_EW_L1Bxspec_product(slc_ew_path, output_filename, xspeconfigname, polarization=None, dev=False,
                                  landmask=None):
     """
 
@@ -51,10 +53,10 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     :param landmask : landmask obj (eg : cartopy.feature.NaturalEarthFeature() )
     :return:
     """
-    safe = os.path.dirname(os.path.dirname(slc_iw_path))
+    safe = os.path.dirname(os.path.dirname(slc_ew_path))
     logging.info('start loading the datatree %s', get_memory_usage())
-    tiff_number = os.path.basename(slc_iw_path).split('-')[1].replace('iw', '')
-    str_gdal = 'SENTINEL1_DS:%s:IW%s' % (safe, tiff_number)
+    tiff_number = os.path.basename(slc_ew_path).split('-')[1].replace('ew', '')
+    str_gdal = 'SENTINEL1_DS:%s:EW%s' % (safe, tiff_number)
     bu = xsar.Sentinel1Meta(str_gdal)._bursts
     chunksize = {'line': int(bu['linesPerBurst'].values), 'sample': int(bu['samplesPerBurst'].values)}
     xsarobj = xsar.Sentinel1Dataset(str_gdal, chunks=chunksize)
@@ -87,7 +89,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
                                                                    tile_overlap_inter=tile_overlap_inter,
                                                                    periodo_width_inter=periodo_width_inter,
                                                                    periodo_overlap_inter=periodo_overlap_inter
-                                                                   , IR_path=IR_path,landmask=landmask)
+                                                                   , IR_path=IR_path, landmask=landmask)
     else:
         one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt, polarization=polarization.upper(),
                                                                    dev=dev, compute_intra_xspec=True,
@@ -103,7 +105,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
                                                                    landmask=landmask
                                                                    )
     if one_subswath_xspectrum_dt:
-        logging.info('xspec intra and inter ready for %s', slc_iw_path)
+        logging.info('xspec intra and inter ready for %s', slc_ew_path)
         logging.debug('one_subswath_xspectrum = %s', one_subswath_xspectrum_dt)
         one_subswath_xspectrum_dt.attrs['version_xsar'] = xsar.__version__
         one_subswath_xspectrum_dt.attrs['version_xsarslc'] = xsarslc.__version__
@@ -120,13 +122,13 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
 
 def main():
     time.sleep(np.random.rand(1, 1)[0][0])  # to avoid issue with mkdir
-    parser = argparse.ArgumentParser(description='L1BwaveIFR_IW_SLC')
+    parser = argparse.ArgumentParser(description='L1BwaveIFR_EW_SLC')
     parser.add_argument('--verbose', action='store_true', default=False)
     parser.add_argument('--overwrite', action='store_true', default=False,
                         help='overwrite the existing outputs [default=False]', required=False)
-    parser.add_argument('--tiff', required=True, help='tiff file full path IW SLC')
+    parser.add_argument('--tiff', required=True, help='tiff file full path EW SLC')
     parser.add_argument('--outputdir', required=False, help='directory where to store output netCDF files',
-                        default=get_default_outputdir(mode='iw'))
+                        default=get_default_outputdir(mode='ew'))
     parser.add_argument('--version',
                         help='set the output product version (e.g. 1.4) default version will be read from config.yml',
                         required=False, default=PRODUCT_VERSION)
@@ -140,15 +142,15 @@ def main():
     fmt = '%(asctime)s %(levelname)s %(filename)s(%(lineno)d) %(message)s'
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG, format=fmt,
-                            datefmt='%d/%m/%Y %H:%M:%S',force=True)
+                            datefmt='%d/%m/%Y %H:%M:%S', force=True)
     else:
         logging.basicConfig(level=logging.INFO, format=fmt,
-                            datefmt='%d/%m/%Y %H:%M:%S',force=True)
+                            datefmt='%d/%m/%Y %H:%M:%S', force=True)
     t0 = time.time()
     logging.info('product version to produce: %s', args.version)
     logging.info('outputdir will be: %s', args.outputdir)
     logging.info('xspeconfigname : %s', args.xspeconfigname)
-    slc_iw_path = args.tiff
+    slc_ew_path = args.tiff
     if 'cartopy' in args.landmask:
         logging.info('landmask is a cartopy feature')
         import cartopy
@@ -157,17 +159,17 @@ def main():
         landmask = cartopy.feature.NaturalEarthFeature('physical', 'land', '10m')
     else:
         landmask = None
-    polarization_from_file = os.path.basename(slc_iw_path).split('-')[3]
-    safe_basename = os.path.basename(os.path.dirname(os.path.dirname(slc_iw_path)))
+    polarization_from_file = os.path.basename(slc_ew_path).split('-')[3]
+    safe_basename = os.path.basename(os.path.dirname(os.path.dirname(slc_ew_path)))
     safe_basename = safe_basename.replace('SLC', 'XSP')
     output_filename = os.path.join(args.outputdir, args.version, safe_basename, os.path.basename(
-        slc_iw_path).replace('.tiff', '') + '_L1B_xspec_IFR_' + args.version + '.nc')
+        slc_ew_path).replace('.tiff', '') + '_L1B_xspec_IFR_' + args.version + '.nc')
     logging.info('mode dev is %s', args.dev)
     logging.info('output filename would be: %s', output_filename)
     if os.path.exists(output_filename) and args.overwrite is False:
         logging.info('%s already exists', output_filename)
     else:
-        generate_IW_L1Bxspec_product(slc_iw_path=slc_iw_path, output_filename=output_filename,
+        generate_EW_L1Bxspec_product(slc_ew_path=slc_ew_path, output_filename=output_filename,
                                      xspeconfigname=args.xspeconfigname, dev=args.dev,
                                      polarization=polarization_from_file, landmask=landmask)
     logging.info('peak memory usage: %s Mbytes', get_memory_usage())
