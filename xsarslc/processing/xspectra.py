@@ -121,8 +121,7 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
     if xspectra.sizes['tile_line'] == xspectra.sizes[
         'tile_sample'] == 1:  # In WV mode, it will probably be only one tile
         xspectra = xspectra.squeeze(['tile_line', 'tile_sample'])
-    dims_to_transpose = [d for d in ['tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
-                         d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
+    xspectra = xs_formatting(xspectra)
     return xspectra
 
 
@@ -202,12 +201,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
     xspectra = xr.align(*xspectra, exclude=dims_not_align, join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
     xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).reset_coords(['line','sample','longitude','latitude']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
     xspectra = xspectra.assign_coords({d:xspectra[d] for d in ['line','sample','longitude','latitude'] if d in xspectra}) # reseting and reassigning theses variables avoid some bug in combine_by_coords with missing variables between datasets
-    dims_to_transpose = [d for d in ['burst', 'tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
-                         d in xspectra.dims]  # for homogeneous order of dimensions with interburst
-    xspectra = xspectra.transpose(*dims_to_transpose, ...)
-    xspectra['land_flag'] = xspectra['land_flag'].astype(bool)
-    xspectra['corner_line'] = xspectra['corner_line'].astype(int)
-    xspectra['corner_sample'] = xspectra['corner_sample'].astype(int)
+    xspectra = xs_formatting(xspectra)
     return xspectra
 
 
@@ -297,12 +291,27 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
     xspectra = xr.align(*xspectra, exclude=dims_not_align, join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
     xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).reset_coords(['line','sample','longitude','latitude']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
     xspectra = xspectra.assign_coords({d:xspectra[d] for d in ['line','sample','longitude','latitude'] if d in xspectra}) # reseting and reassigning theses variables avoid some bug in combine_by_coords with missing variables between datasets
+    xspectra = xs_formatting(xspectra)
+    return xspectra
+
+
+def xs_formatting(xspectra):
+    """
+    Format final returned xspectra. Transposing dimensions, checking data type, ...
+    Args:
+        xspectra (xarray.Dataset): xspectra to format
+    Return:
+        (xarray.Dataset): formatted xspectra
+
+    """
     dims_to_transpose = [d for d in ['burst', 'tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
                          d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
     xspectra = xspectra.transpose(*dims_to_transpose, ...)
-    xspectra['land_flag'] = xspectra['land_flag'].astype(bool)
-    xspectra['corner_line'] = xspectra['corner_line'].astype(int)
-    xspectra['corner_sample'] = xspectra['corner_sample'].astype(int)
+    if 'land_flag' in xspectra:
+        xspectra['land_flag'] = xspectra['land_flag'].astype(bool)
+    if 'corner_line' in xspectra:
+        xspectra['corner_line'] = xspectra['corner_line'].astype(int)
+        xspectra['corner_sample'] = xspectra['corner_sample'].astype(int)
     return xspectra
 
 
