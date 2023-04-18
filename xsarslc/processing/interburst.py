@@ -32,7 +32,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         kwargs: keyword arguments passed to compute_interburst_xspectrum()
     """
     from xsarslc.tools import get_tiles, get_corner_tile, get_middle_tile, is_ocean, FullResolutionInterpolation, haversine
-    from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0
+    from xsarslc.processing.xspectra import compute_modulation, compute_azimuth_cutoff, compute_normalized_variance, compute_mean_sigma0_interp, compute_mean_sigma0_closest
 
     # ------------------ preprocessing --------------
     azitime_interval = burst0.attrs['azimuth_time_interval']
@@ -210,7 +210,9 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         # ------------- nv ------------
         nv = compute_normalized_variance(mod0)
         # ------------- mean sigma0 and nesz ------------
-        sigma0, nesz = compute_mean_sigma0(sub0['digital_number'], burst['linesPerBurst'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
+        sigma0, nesz = compute_mean_sigma0_interp(sub0['digital_number'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
+        if not np.isfinite(sigma0): # should only append in IW mode. Case when line are badly indexed in noise-range LUT
+            sigma0, nesz = compute_mean_sigma0_closest(sub0['digital_number'], burst['linesPerBurst'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
         # ------------- mean incidence ------------
         mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
         # ------------- heading ------------
