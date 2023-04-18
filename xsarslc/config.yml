@@ -1,9 +1,10 @@
 # default data dir for tests and examples
 data_dir: /tmp
 product_version: 1.5
-default_outputdir_iw: '/home/datawork-cersat-public/project/sarwave/data/products/tests/iw/slc/l1b'
-default_outputdir_wv: '/home/datawork-cersat-public/project/sarwave/data/products/tests/wv/slc/l1b'
-default_landmask_dir: '/home1/datahome/agrouaze/.local/share/cartopy/'
+default_outputdir_iw: './data/products/tests/iw/slc/l1b'
+default_outputdir_ew: './data/products/tests/ew/slc/l1b'
+default_outputdir_wv: './data/products/tests/wv/slc/l1b'
+default_landmask_dir: '~/.local/share/cartopy/'
 xspec_configs:
   tiles20km:
     tile_width_intra:

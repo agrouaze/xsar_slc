@@ -45,3 +45,4 @@ known_first_party = "xsarslc"
 [project.scripts]
 L1B_xspectra_IW_SLC_IFR = "xsarslc.scripts.L1B_xspectra_IW_SLC_IFR:main"
 L1B_xspectra_WV_SLC_IFR = "xsarslc.scripts.L1B_xspectra_WV_SLC_IFR:main"
+L1B_xspectra_EW_SLC_IFR = "xsarslc.scripts.L1B_xspectra_EW_SLC_IFR:main"
