@@ -209,8 +209,8 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
                                   spacing={'sample': ground_spacing, 'line': azimuth_spacing})
         # ------------- nv ------------
         nv = compute_normalized_variance(mod0)
-        # ------------- mean sigma0 ------------
-        sigma0 = compute_mean_sigma0(sub0['digital_number'], burst['linesPerBurst'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
+        # ------------- mean sigma0 and nesz ------------
+        sigma0, nesz = compute_mean_sigma0(sub0['digital_number'], burst['linesPerBurst'], calibration['sigma0_lut'], noise_range['noise_lut'], noise_azimuth['noise_lut'])
         # ------------- mean incidence ------------
         mean_incidence = xr.DataArray(mean_incidence, name='incidence', attrs={'long_name':'incidence at tile middle', 'units':'degree'})
         # ------------- heading ------------
@@ -218,7 +218,7 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
         ground_heading = xr.DataArray(float(heading), name='ground_heading', attrs={'long_name':'ground heading', 'units':'degree', 'convention':'from North clockwise'})
 
         # ---------------- part of the variables to be added to the final dataset ----------------------
-        variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), ground_heading.to_dataset()]
+        variables_list+=[mean_incidence.to_dataset(), nv.to_dataset(), sigma0.to_dataset(), nesz.to_dataset(), ground_heading.to_dataset()]
 
         if water_only:
 
@@ -284,10 +284,11 @@ def tile_bursts_overlap_to_xspectra(burst0, burst1, geolocation_annotation, cali
     xs.attrs.update({'tile_overlap_' + d: k for d, k in tile_overlap.items()})
     xs.attrs.update({'periodo_width_' + d: k for d, k in periodo_width.items()})
     xs.attrs.update({'periodo_overlap_' + d: k for d, k in periodo_overlap.items()})
-
-    landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag])['land_flag'] if landflag else xr.DataArray(0, name='land_mask')
-    landflag.attrs.update({'long_name': 'land flag', 'convention': 'True if land is present'})
-    xs = xr.merge([xs, landflag.to_dataset(), overlap_corner_lons.to_dataset(), overlap_corner_lats.to_dataset()], join = 'inner')
+    if landflag:
+        landflag = xr.combine_by_coords([l.expand_dims(['tile_sample', 'tile_line']) for l in landflag])['land_flag']
+        landflag.attrs.update({'long_name': 'land flag', 'convention': 'True if land is present'})
+        xs = xr.merge([xs, landflag.to_dataset()])    
+    xs = xr.merge([xs,overlap_corner_lons.to_dataset(), overlap_corner_lats.to_dataset()], join = 'inner')
     return xs
 
 

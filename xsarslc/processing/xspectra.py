@@ -121,8 +121,7 @@ def compute_WV_intraburst_xspectra(dt, polarization, tile_width=None, tile_overl
     if xspectra.sizes['tile_line'] == xspectra.sizes[
         'tile_sample'] == 1:  # In WV mode, it will probably be only one tile
         xspectra = xspectra.squeeze(['tile_line', 'tile_sample'])
-    dims_to_transpose = [d for d in ['tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
-                         d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
+    xspectra = xs_formatting(xspectra)
     return xspectra
 
 
@@ -202,13 +201,7 @@ def compute_IW_subswath_intraburst_xspectra(dt, polarization, periodo_width={'sa
     xspectra = xr.align(*xspectra, exclude=dims_not_align, join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
     xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).reset_coords(['line','sample','longitude','latitude']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
     xspectra = xspectra.assign_coords({d:xspectra[d] for d in ['line','sample','longitude','latitude'] if d in xspectra}) # reseting and reassigning theses variables avoid some bug in combine_by_coords with missing variables between datasets
-    dims_to_transpose = [d for d in ['burst', 'tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
-                         d in xspectra.dims]  # for homogeneous order of dimensions with interburst
-    xspectra = xspectra.transpose(*dims_to_transpose, ...)
-    if 'land_flag' in  xspectra:
-        xspectra['land_flag'] = xspectra['land_flag'].astype(bool)
-    xspectra['corner_line'] = xspectra['corner_line'].astype(int)
-    xspectra['corner_sample'] = xspectra['corner_sample'].astype(int)
+    xspectra = xs_formatting(xspectra)
     return xspectra
 
 
@@ -298,13 +291,27 @@ def compute_IW_subswath_interburst_xspectra(dt, polarization, periodo_width={'sa
     xspectra = xr.align(*xspectra, exclude=dims_not_align, join='outer') # tile sample/line are aligned (thanks to their coordinate value) to avoid bug in combine_by_coords below
     xspectra = xr.combine_by_coords([x.drop(['tile_sample', 'tile_line']).reset_coords(['line','sample','longitude','latitude']).expand_dims('burst') for x in xspectra], combine_attrs='drop_conflicts')
     xspectra = xspectra.assign_coords({d:xspectra[d] for d in ['line','sample','longitude','latitude'] if d in xspectra}) # reseting and reassigning theses variables avoid some bug in combine_by_coords with missing variables between datasets
+    xspectra = xs_formatting(xspectra)
+    return xspectra
+
+
+def xs_formatting(xspectra):
+    """
+    Format final returned xspectra. Transposing dimensions, checking data type, ...
+    Args:
+        xspectra (xarray.Dataset): xspectra to format
+    Return:
+        (xarray.Dataset): formatted xspectra
+
+    """
     dims_to_transpose = [d for d in ['burst', 'tile_line', 'tile_sample', 'freq_line', 'freq_sample'] if
                          d in xspectra.dims]  # for homogeneous order of dimensions with intraburst
     xspectra = xspectra.transpose(*dims_to_transpose, ...)
     if 'land_flag' in xspectra:
         xspectra['land_flag'] = xspectra['land_flag'].astype(bool)
-    xspectra['corner_line'] = xspectra['corner_line'].astype(int)
-    xspectra['corner_sample'] = xspectra['corner_sample'].astype(int)
+    if 'corner_line' in xspectra:
+        xspectra['corner_line'] = xspectra['corner_line'].astype(int)
+        xspectra['corner_sample'] = xspectra['corner_sample'].astype(int)
     return xspectra
 
 
@@ -420,12 +427,13 @@ def compute_mean_sigma0_interp(DN, sigma0_lut, range_noise_lut, azimuth_noise_lu
 
 def compute_mean_sigma0(DN, linesPerBurst, sigma0_lut, range_noise_lut, azimuth_noise_lut):
     """
-    compute mean calibrated sigma0
+    compute mean calibrated sigma0 and mean noise equivalent o
     Args:
         DN (xarray): digital number
         sigma0_lut (xarray) : calibration LUT of dataset
     Return:
         (xarray): calibrated mean sigma0 (single value)
+        (xarray): noise equivalent sigma0 (single value)
     """
     polarization = DN.pol.item()
     sigma0_lut = sigma0_lut.sel(pol=polarization)
@@ -434,10 +442,15 @@ def compute_mean_sigma0(DN, linesPerBurst, sigma0_lut, range_noise_lut, azimuth_
     azimuth_noise_lut = azimuth_noise_lut.sel(pol=polarization)
     noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True)) * (
         range_noise_lut.interp_like(DN, assume_sorted=True))
-    sigma0 = (np.abs(DN) ** 2 - noise) / ((sigma0_lut.interp_like(DN, assume_sorted=True)) ** 2)
+    
+    calib = (sigma0_lut.interp_like(DN, assume_sorted=True)) ** 2
+    sigma0 = (np.abs(DN) ** 2 - noise) / calib
     sigma0 = sigma0.mean(dim=['line', 'sample']).rename('sigma0')
     sigma0.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
-    return sigma0
+
+    nesz = (noise / calib).mean(dim=['line', 'sample']).rename('nesz')
+    nesz.attrs.update({'long_name': 'noise-equivalent sigma zero', 'units': 'linear'})
+    return sigma0, nesz
 
 
 def symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az'):
