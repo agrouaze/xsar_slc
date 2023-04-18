@@ -407,12 +407,13 @@ def compute_normalized_variance(modulation):
 
 def compute_mean_sigma0_interp(DN, sigma0_lut, range_noise_lut, azimuth_noise_lut):
     """
-    compute mean calibrated sigma0. This is an old version doing interpolation over the LUT instead of taking closest LUT
+    Compute mean calibrated sigma0 and mean noise equivalent sigma0. This is a version doing interpolation over the LUT instead of taking closest LUT
     Args:
         DN (xarray): digital number
         sigma0_lut (xarray) : calibration LUT of dataset
     Return:
         (xarray): calibrated mean sigma0 (single value)
+        (xarray): noise equivalent sigma0 (single value)
     """
     polarization = DN.pol.item()
     sigma0_lut = sigma0_lut.sel(pol=polarization)
@@ -420,14 +421,20 @@ def compute_mean_sigma0_interp(DN, sigma0_lut, range_noise_lut, azimuth_noise_lu
     azimuth_noise_lut = azimuth_noise_lut.sel(pol=polarization)
     noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True)) * (
         range_noise_lut.interp_like(DN, assume_sorted=True))
-    sigma0 = (np.abs(DN) ** 2 - noise) / ((sigma0_lut.interp_like(DN, assume_sorted=True)) ** 2)
+    
+    calib = (sigma0_lut.interp_like(DN, assume_sorted=True)) ** 2
+    sigma0 = (np.abs(DN) ** 2 - noise) / calib
     sigma0 = sigma0.mean(dim=['line', 'sample']).rename('sigma0')
     sigma0.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
-    return sigma0
 
-def compute_mean_sigma0(DN, linesPerBurst, sigma0_lut, range_noise_lut, azimuth_noise_lut):
+    nesz = (noise / calib).mean(dim=['line', 'sample']).rename('nesz')
+    nesz.attrs.update({'long_name': 'noise-equivalent sigma zero', 'units': 'linear'})
+
+    return sigma0, nesz
+
+def compute_mean_sigma0_closest(DN, linesPerBurst, sigma0_lut, range_noise_lut, azimuth_noise_lut):
     """
-    compute mean calibrated sigma0 and mean noise equivalent o
+    Compute mean calibrated sigma0 and mean noise equivalent sigma0. This version uses closest line of the burst
     Args:
         DN (xarray): digital number
         sigma0_lut (xarray) : calibration LUT of dataset
