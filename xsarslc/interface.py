@@ -134,9 +134,12 @@ def get_tiles_from_L1B_SLC(L1B, polarization=None):
 
     sigma0 = list()
     for DN in DN_tiles:
-        mid_burst_line = int(dt['bursts']['linesPerBurst'].item()*(DN['burst'].item()+0.5))
-        range_noise_lut_mytile = range_noise_lut.sel(line=mid_burst_line, method='nearest').drop_vars('line') # taking closest line    
-        noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True))*(range_noise_lut_mytile.interp_like(DN, assume_sorted=True))
+        range_noise_lut_mytile = range_noise_lut.interp_like(DN, assume_sorted=True)
+        if np.any(np.isnan(range_noise_lut_mytile)):
+            mid_burst_line = int(dt['bursts']['linesPerBurst'].item()*(DN['burst'].item()+0.5))
+            range_noise_lut_mytile = range_noise_lut.sel(line=mid_burst_line, method='nearest').drop_vars('line') # taking closest line
+            range_noise_lut_mytile = range_noise_lut_mytile.interp_like(DN, assume_sorted=True)
+        noise = (azimuth_noise_lut.interp_like(DN, assume_sorted=True))*range_noise_lut_mytile
         calibrated_DN = ((np.abs(DN)**2-noise)/((sigma0_lut.interp_like(DN, assume_sorted=True))**2)).rename('sigma0')
         calibrated_DN.attrs.update({'long_name': 'calibrated sigma0', 'units': 'linear'})
         tile_coords = {'burst':calibrated_DN['burst'], 'tile_line':calibrated_DN['tile_line'], 'tile_sample':calibrated_DN['tile_sample']}
