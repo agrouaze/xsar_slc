@@ -24,8 +24,8 @@ def FullResolutionInterpolation(lines, samples, field, geolocation_annotation, a
     geolocated_lines = line2geolocline(lines, geolocation_annotation, azimuthTimeInterval)  # Find geolocated lines
     LR_field = geolocation_annotation[field]  # Low resolution field
     field_interpolator = RectBivariateSpline(LR_field['line'].data, LR_field['sample'].data,
-                                             LR_field.transpose('line', 'sample').data, kx=1,
-                                             ky=1)  # interpolator of low resolution field
+                                             LR_field.transpose('line', 'sample').data, kx=3,
+                                             ky=3)  # interpolator of low resolution field
     out = from_HDresampler(geolocated_lines, samples, field_interpolator).rename(field)
     out.attrs.update(LR_field.attrs)
     return out
