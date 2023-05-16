@@ -152,6 +152,8 @@ def generate_WV_L1Bxspec_product(slc_wv_path, output_filename, xspeconfigname, p
     # xs = xspectra.symmetrize_xspectrum(xs, dim_range='k_rg', dim_azimuth='k_az')
     xs = netcdf_compliant(xs0)  # to split complex128 variables into real and imag part
     xs = xs.drop('pol')
+    var2drop = ['var_xspectra_0tau','var_xspectra_1tau','var_xspectra_2tau','xspectra_0tau_Re','xspectra_0tau_Im','xspectra_1tau_Re','xspectra_1tau_Im']
+    xs = xs.drop_vars(var2drop)
     if 'spatial_ref' in xs:
         xs = xs.drop('spatial_ref')
     if xs:
