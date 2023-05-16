@@ -64,6 +64,7 @@ def line2geolocline(lines, geolocation_annotation, azimuth_time_interval):
     delta = (az_ref2 - az_ref) / (
             l_ref2 - l_ref)  # rate of azimuth time variation VS line number in the low resolution geolocation annotation
     geoloc_lines = l_ref + (az - az_ref) / delta
+    geoloc_lines = np.where(i_ref!=geolines.sizes['line'] - 2, geoloc_lines,lines.data) # Ensuring lines and geolines match on last burst only !
     if isinstance(lines, xr.DataArray):
         geoloc_lines = xr.DataArray(geoloc_lines, dims=lines.dims, coords=lines.coords).rename('geolocated_line')
 
