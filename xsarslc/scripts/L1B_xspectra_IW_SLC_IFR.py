@@ -40,7 +40,7 @@ def get_memory_usage():
 
 
 def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, polarization=None, dev=False,
-                                 landmask=None):
+                                 landmask=None,decimation=False):
     """
 
     :param tiff: str full path
@@ -49,6 +49,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
     :param polarization : str : VV VH HH HV [optional]
     :param dev: bool: allow to shorten the processing
     :param landmask : landmask obj (eg : cartopy.feature.NaturalEarthFeature() )
+    :param decimation: bool True -> select few tiles to saved on disk [default=False]
     :return:
     """
     safe = os.path.dirname(os.path.dirname(slc_iw_path))
@@ -87,7 +88,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
                                                                    tile_overlap_inter=tile_overlap_inter,
                                                                    periodo_width_inter=periodo_width_inter,
                                                                    periodo_overlap_inter=periodo_overlap_inter
-                                                                   , IR_path=IR_path,landmask=landmask)
+                                                                   , IR_path=IR_path,landmask=landmask,decimation=decimation)
     else:
         one_subswath_xspectrum_dt = proc.compute_subswath_xspectra(dt, polarization=polarization.upper(),
                                                                    dev=dev, compute_intra_xspec=True,
@@ -100,7 +101,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
                                                                    tile_overlap_inter=tile_overlap_inter,
                                                                    periodo_width_inter=periodo_width_inter,
                                                                    periodo_overlap_inter=periodo_overlap_inter,
-                                                                   landmask=landmask
+                                                                   landmask=landmask,decimation=decimation
                                                                    )
     if one_subswath_xspectrum_dt:
         logging.info('xspec intra and inter ready for %s', slc_iw_path)
@@ -109,6 +110,7 @@ def generate_IW_L1Bxspec_product(slc_iw_path, output_filename, xspeconfigname, p
         one_subswath_xspectrum_dt.attrs['version_xsarslc'] = xsarslc.__version__
         one_subswath_xspectrum_dt.attrs['processor'] = __file__
         one_subswath_xspectrum_dt.attrs['generation_date'] = datetime.datetime.today().strftime('%Y-%b-%d')
+        one_subswath_xspectrum_dt.attrs['decimation'] = str(decimation)
         if not os.path.exists(os.path.dirname(output_filename)):
             os.makedirs(os.path.dirname(output_filename), 0o0775)
             logging.info('makedir %s', os.path.dirname(output_filename))
@@ -131,6 +133,7 @@ def main():
                         help='set the output product version (e.g. 1.4) default version will be read from config.yml',
                         required=False, default=PRODUCT_VERSION)
     parser.add_argument('--dev', action='store_true', default=False, help='dev mode stops the computation early')
+    parser.add_argument('--decimation', action='store_true', default=False, help='decimation of intra and inter burst tiles before saving')
     parser.add_argument('--landmask', required=False, default=get_default_landmask_dir(),
                         help='landmask files (such as cartopy /.local/share/cartopy ) to have a landmask information '
                              'without web connexion , default value cromes from config.yml')
@@ -169,7 +172,7 @@ def main():
     else:
         generate_IW_L1Bxspec_product(slc_iw_path=slc_iw_path, output_filename=output_filename,
                                      xspeconfigname=args.xspeconfigname, dev=args.dev,
-                                     polarization=polarization_from_file, landmask=landmask)
+                                     polarization=polarization_from_file, landmask=landmask,decimation=args.decimation)
     logging.info('peak memory usage: %s Mbytes', get_memory_usage())
     logging.info('done in %1.3f min', (time.time() - t0) / 60.)
 

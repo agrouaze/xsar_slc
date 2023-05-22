@@ -2,6 +2,8 @@
 # coding=utf-8
 """
 """
+import pdb
+
 import numpy as np
 import xarray as xr
 import logging
@@ -13,6 +15,7 @@ from tqdm import tqdm
 def compute_subswath_xspectra(dt, polarization, tile_width_intra, tile_width_inter, tile_overlap_intra,
                               tile_overlap_inter,
                               periodo_width_intra, periodo_width_inter, periodo_overlap_intra, periodo_overlap_inter,
+                              decimation,
                               **kwargs):
     """
     Main function to compute IW inter and intra burst spectra. It has to be modified to be able to change Xspectra options
@@ -28,6 +31,7 @@ def compute_subswath_xspectra(dt, polarization, tile_width_intra, tile_width_int
         periodo_overlap_intra (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for intra burst.
         periodo_overlap_inter (dict): approximate sizes of periodogram overlapping in meters. Dict of shape {dim_name (str): overlap [m](float)} for inter burst.
         polarization (str, optional): polarization to be selected for xspectra computation
+        decimation (bool): True -> only few specific tiles are saved to netCDF (to save space on disk)
 
     Keyword Args:
         kwargs (dict): keyword arguments passed to called functions. landmask, IR_path ...
@@ -67,6 +71,42 @@ def compute_subswath_xspectra(dt, polarization, tile_width_intra, tile_width_int
             inter_xs.attrs.update({'footprint': str(inter_xs.footprint)})
         # inter_xs.attrs.pop('pixel_line_m')
         # inter_xs.attrs.pop('pixel_sample_m')
+    if decimation:
+        logging.info('decimation of intra burst and inter burst dataset to save only few tiles')
+        decimation_selection = {'intra':
+                                    {'tile_sample':
+                                        {'iw1':np.linspace(0,43,4).astype(int),
+                                         'iw2': np.linspace(0, 45, 5).astype(int),
+                                         'iw3': np.linspace(0, 39, 4).astype(int)
+                                         }
+                                     ,
+                                    'tile_line':
+                                         {
+                                         'iw1': 5,
+                                         'iw2': 5,
+                                         'iw3': 5
+                                         }
+                                    }
+                                ,
+                                'inter':{
+                                    'tile_sample':
+                                         {'iw1': np.linspace(0, 43, 4).astype(int),
+                                          'iw2': np.linspace(0, 45, 5).astype(int),
+                                          'iw3': np.linspace(0, 39, 4).astype(int)
+                                          },
+                                    'tile_line':
+                                         {
+                                             'iw1': 0,
+                                             'iw2': 0,
+                                             'iw3': 0
+                                         }
+                                     }
+                                     }
+        inter_xs = inter_xs.isel({'tile_sample':decimation_selection['inter']['tile_sample']})
+        intra_xs = intra_xs.isel({'tile_sample':decimation_selection['intra']['tile_sample'],
+                                  'tile_line':decimation_selection['intra']['tile_line']})
+        pdb.set_trace()
+
     if not inter_xs and not intra_xs:
         dt = None
     else:
